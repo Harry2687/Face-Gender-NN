@@ -1,0 +1,64 @@
+```{python}
+import os
+import torch
+import torch.nn as nn
+import torch.optim as optim
+from PIL import Image
+import matplotlib.pyplot as plt
+import torchvision.transforms as transforms
+```
+
+```{python}
+if torch.backends.mps.is_available():
+    device = torch.device('mps')
+elif torch.cuda.is_available():
+    device = torch.device('cuda')
+else:
+    device = torch.device('cpu')
+
+torch.set_default_device(device)
+```
+
+```{python}
+directory_male = 'data/ThisPersonDoesNotExist/Male/'
+
+image_names_male = os.listdir(directory_male)
+image_files_male = [os.path.join(directory_male, image_file_name) for image_file_name in image_names_male]
+
+directory_female = 'data/ThisPersonDoesNotExist/Female/'
+
+image_names_female = os.listdir(directory_female)
+image_files_female = [os.path.join(directory_female, image_file_name) for image_file_name in image_names_female]
+```
+
+```{python}
+test_image_file = image_files_male[2]
+
+imsize = 512
+
+loader = transforms.Compose([
+    transforms.Resize(imsize),
+    transforms.ToTensor()
+])
+
+def image_loader(image_file):
+    image = Image.open(image_file)
+    image = loader(image).unsqueeze(0)
+    return image.to(device, torch.float)
+
+test_image = image_loader(test_image_file)
+
+unloader = transforms.ToPILImage()
+
+plt.ion()
+
+def imshow(tensor):
+    image = tensor.cpu().clone()
+    image = image.squeeze(0)
+    image = unloader(image)
+    plt.imshow(image)
+    plt.pause(0.001)
+
+plt.figure()
+imshow(test_image)
+```
