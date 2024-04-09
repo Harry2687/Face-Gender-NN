@@ -6,6 +6,7 @@ import torch.optim as optim
 from PIL import Image
 import matplotlib.pyplot as plt
 import torchvision.transforms as transforms
+import torch.nn.functional as F
 ```
 
 ```{python}
@@ -32,9 +33,8 @@ image_files_female = [os.path.join(directory_female, image_file_name) for image_
 ```
 
 ```{python}
-test_image_file = image_files_male[2]
-
-imsize = 512
+# load in image and convert to tensor
+imsize = 128
 
 loader = transforms.Compose([
     transforms.Resize(imsize),
@@ -46,8 +46,30 @@ def image_loader(image_file):
     image = loader(image).unsqueeze(0)
     return image.to(device, torch.float)
 
-test_image = image_loader(test_image_file)
+male_tensor = torch.empty((0, 3, imsize, imsize))
+n_male = 0
+for male in image_files_male[0:1000]:
+    male_tensor = torch.cat(
+        (male_tensor, image_loader(male))
+    )
+    n_male += 1
+y_male = torch.full((n_male,), 0)
 
+female_tensor = torch.empty((0, 3, imsize, imsize))
+n_female = 0
+for female in image_files_female[0:1000]:
+    female_tensor = torch.cat(
+        (female_tensor, image_loader(female))
+    )
+    n_female += 1
+y_female = torch.full((n_female,), 1)
+
+y = torch.cat((y_male, y_female))
+X = torch.cat((male_tensor, female_tensor))
+```
+
+```{python}
+# view image
 unloader = transforms.ToPILImage()
 
 plt.ion()
@@ -60,5 +82,51 @@ def imshow(tensor):
     plt.pause(0.001)
 
 plt.figure()
-imshow(test_image)
+
+imshow(female_tensor[10])
+```
+
+```{python}
+class mlpModel(nn.Module):
+    def __init__(self, in_features=3*imsize*imsize, h1=120*16, h2=84*16, out_features=2):
+        super().__init__()
+        self.fc1 = nn.Linear(in_features, h1)
+        self.fc2 = nn.Linear(h1, h2)
+        self.out = nn.Linear(h2, out_features)
+
+    def forward(self, x):
+        x = torch.flatten(x, 1)
+        x = F.relu(self.fc1(x))
+        x = F.relu(self.fc2(x))
+        x = self.out(x)
+        return x
+```
+
+```{python}
+torch.manual_seed(2687)
+mlp = mlpModel()
+criterion = nn.CrossEntropyLoss()
+optimizer = torch.optim.Adam(mlp.parameters(), lr=0.001)
+```
+
+```{python}
+epochs = 500
+losses = []
+for i in range(epochs):
+    y_pred = mlp.forward(X)
+    loss = criterion(y_pred, y)
+    losses.append(loss.item())
+    
+    if i % 10 == 0:
+        print(f'Epoch: {i} and loss: {loss}')
+
+    optimizer.zero_grad()
+    loss.backward()
+    optimizer.step()
+```
+
+```{python}
+plt.plot(range(epochs), losses)
+plt.ylabel("loss/error")
+plt.xlabel('Epoch')
 ```
