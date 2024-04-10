@@ -1,3 +1,5 @@
+Import packages and stuff we'll need.
+
 ```{python}
 import os
 import torch
@@ -7,7 +9,11 @@ from PIL import Image
 import matplotlib.pyplot as plt
 import torchvision.transforms as transforms
 import torch.nn.functional as F
+import numpy as np
+from sklearn.model_selection import train_test_split
 ```
+
+Set device (M1/CUDA/CPU).
 
 ```{python}
 if torch.backends.mps.is_available():
@@ -19,6 +25,8 @@ else:
 
 torch.set_default_device(device)
 ```
+
+Get image file directories.
 
 ```{python}
 directory_male = 'data/ThisPersonDoesNotExist/Male/'
@@ -32,8 +40,9 @@ image_names_female = os.listdir(directory_female)
 image_files_female = [os.path.join(directory_female, image_file_name) for image_file_name in image_names_female]
 ```
 
+Import images and correct gender classification as tensors.
+
 ```{python}
-# load in image and convert to tensor
 imsize = 128
 
 loader = transforms.Compose([
@@ -68,6 +77,8 @@ y = torch.cat((y_male, y_female))
 X = torch.cat((male_tensor, female_tensor))
 ```
 
+Convert a sample tensor back to image as verification.
+
 ```{python}
 # view image
 unloader = transforms.ToPILImage()
@@ -86,6 +97,14 @@ plt.figure()
 imshow(female_tensor[10])
 ```
 
+Define training and testing sets.
+
+```{python}
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=2687)
+```
+
+Define multi-layer perceptron neural network class.
+
 ```{python}
 class mlpModel(nn.Module):
     def __init__(self, in_features=3*imsize*imsize, h1=120*16, h2=84*16, out_features=2):
@@ -102,6 +121,8 @@ class mlpModel(nn.Module):
         return x
 ```
 
+Set model, loss measure, and optimiser parameters.
+
 ```{python}
 torch.manual_seed(2687)
 mlp = mlpModel()
@@ -109,24 +130,45 @@ criterion = nn.CrossEntropyLoss()
 optimizer = torch.optim.Adam(mlp.parameters(), lr=0.001)
 ```
 
+Train MLP model.
+
 ```{python}
-epochs = 500
+epochs = 100
 losses = []
 for i in range(epochs):
-    y_pred = mlp.forward(X)
-    loss = criterion(y_pred, y)
+    y_pred = mlp.forward(X_train)
+    loss = criterion(y_pred, y_train)
     losses.append(loss.item())
     
-    if i % 10 == 0:
-        print(f'Epoch: {i} and loss: {loss}')
+    if (i+1) % 10 == 0:
+        print(f'Epoch: {i+1} and loss: {loss}')
 
     optimizer.zero_grad()
     loss.backward()
     optimizer.step()
 ```
 
+Plot training error.
+
 ```{python}
 plt.plot(range(epochs), losses)
 plt.ylabel("loss/error")
 plt.xlabel('Epoch')
+```
+
+```{python}
+with torch.no_grad():
+    y_eval = mlp.forward(X_test)
+    loss = criterion(y_eval, y_test)
+
+loss
+```
+
+```{python}
+correct = 0
+with torch.no_grad():
+    for i, data in enumerate(X_test):
+        y_val = mlp.forward(data)
+
+        print(f'{i+1}.)  {str(y_val)} \t {y_test[i]} \t {y_val.argmax().item()}')
 ```
