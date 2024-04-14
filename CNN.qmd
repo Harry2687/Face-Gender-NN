@@ -52,15 +52,24 @@ train_loader = DataLoader(
     train_dataset,
     batch_size=500,
     shuffle=True,
-    generator=torch.Generator(device=device)
+    generator=torch.Generator(device=device),
+    pin_memory=True
 )
 
 test_loader = DataLoader(
     test_dataset,
     batch_size=500,
     shuffle=True,
-    generator=torch.Generator(device=device)
+    generator=torch.Generator(device=device),
+    pin_memory=True
 )
+```
+
+```{python}
+for i, (X_train, y_train) in enumerate(train_loader):
+    print(X_train.device)
+    print(y_train.device)
+    break
 ```
 
 ```{python}
@@ -89,6 +98,8 @@ torch.manual_seed(2687)
 cnn = cnnModel().to(device)
 criterion = nn.CrossEntropyLoss()
 optimizer = torch.optim.Adam(cnn.parameters(), lr=0.001)
+
+print(next(cnn.parameters()).device)
 ```
 
 ```{python}
@@ -115,8 +126,7 @@ for i in range(epochs):
         loss.backward()
         optimizer.step()
 
-        if (j+1) % 10 == 0:
-            print(f'Epoch: {i+1}  Batch: {j+1}  Loss: {loss.item()}')
+        print(f'Epoch: {i+1}  Batch: {j}  Loss: {loss.item()}')
     
     train_losses.append(loss)
     train_correct.append(train_cr)
