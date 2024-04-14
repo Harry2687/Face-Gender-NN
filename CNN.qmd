@@ -27,6 +27,16 @@ print(device)
 ```
 
 ```{python}
+directory_male = 'data/ThisPersonDoesNotExist/Male/'
+
+image_names_male = os.listdir(directory_male)
+image_files_male = [os.path.join(directory_male, image_file_name) for image_file_name in image_names_male]
+
+directory_female = 'data/ThisPersonDoesNotExist/Female/'
+
+image_names_female = os.listdir(directory_female)
+image_files_female = [os.path.join(directory_female, image_file_name) for image_file_name in image_names_female]
+
 imsize = 64
 
 loader = transforms.Compose([
@@ -34,33 +44,51 @@ loader = transforms.Compose([
     transforms.ToTensor()
 ])
 
-dataset = datasets.ImageFolder(
-    root='data/ThisPersonDoesNotExist/',
-    transform=loader
-)
+def image_loader(image_file):
+    image = Image.open(image_file)
+    image = loader(image).unsqueeze(0)
+    return image.to(device, torch.float)
 
-train_size = int(0.8*len(dataset))
-test_size = len(dataset) - train_size
+male_tensor = torch.empty((0, 3, imsize, imsize))
+n_male = 0
+for male in image_files_male:
+    male_tensor = torch.cat(
+        (male_tensor, image_loader(male))
+    )
+    n_male += 1
+y_male = torch.full((n_male,), 0)
 
-train_dataset, test_dataset = random_split(
-    dataset,
-    [train_size, test_size],
-    generator=torch.Generator(device=device)
-)
+female_tensor = torch.empty((0, 3, imsize, imsize))
+n_female = 0
+for female in image_files_female:
+    female_tensor = torch.cat(
+        (female_tensor, image_loader(female))
+    )
+    n_female += 1
+y_female = torch.full((n_female,), 1)
 
-train_loader = DataLoader(
-    train_dataset,
-    batch_size=500,
-    shuffle=True,
-    generator=torch.Generator(device=device)
-)
+y = torch.cat((y_male, y_female))
+X = torch.cat((male_tensor, female_tensor))
 
-test_loader = DataLoader(
-    test_dataset,
-    batch_size=500,
-    shuffle=True,
-    generator=torch.Generator(device=device)
-)
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=2687)
+```
+
+```{python}
+# view image
+unloader = transforms.ToPILImage()
+
+plt.ion()
+
+def imshow(tensor):
+    image = tensor.cpu().clone()
+    image = image.squeeze(0)
+    image = unloader(image)
+    plt.imshow(image)
+    plt.pause(0.001)
+
+plt.figure()
+
+imshow(female_tensor[10])
 ```
 
 ```{python}
@@ -89,6 +117,42 @@ torch.manual_seed(2687)
 cnn = cnnModel().to(device)
 criterion = nn.CrossEntropyLoss()
 optimizer = torch.optim.Adam(cnn.parameters(), lr=0.001)
+```
+
+Train CNN model.
+
+```{python}
+epochs = 100
+losses = []
+for i in range(epochs):
+    y_pred = cnn.forward(X_train)
+    loss = criterion(y_pred, y_train)
+    losses.append(loss.item())
+    
+    if (i+1) % 10 == 0:
+        print(f'Epoch: {i+1} and loss: {loss}')
+
+    optimizer.zero_grad()
+    loss.backward()
+    optimizer.step()
+```
+
+Plot training error.
+
+```{python}
+plt.plot(range(epochs), losses)
+plt.ylabel("loss/error")
+plt.xlabel('Epoch')
+```
+
+Out of sample error.
+
+```{python}
+with torch.no_grad():
+    y_eval = cnn.forward(X_test)
+    loss = criterion(y_eval, y_test)
+
+loss
 ```
 
 ```{python}
