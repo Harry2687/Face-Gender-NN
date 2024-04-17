@@ -82,8 +82,7 @@ class cnnModel(nn.Module):
             stride=1
         )
         self.batchnorm_1 = nn.BatchNorm2d(
-            num_features=8,
-            momentum=0.9
+            num_features=8
         )
         self.maxpool_1 = nn.MaxPool2d(
             kernel_size=2, 
@@ -97,8 +96,7 @@ class cnnModel(nn.Module):
             stride=1
         )
         self.batchnorm_2 = nn.BatchNorm2d(
-            num_features=16,
-            momentum=0.9
+            num_features=16
         )
         self.maxpool_2 = nn.MaxPool2d(
             kernel_size=2,
@@ -112,8 +110,7 @@ class cnnModel(nn.Module):
             stride=1
         )
         self.batchnorm_3 = nn.BatchNorm2d(
-            num_features=32,
-            momentum=0.9
+            num_features=32
         )
         self.maxpool_3 = nn.MaxPool2d(
             kernel_size=2,
@@ -128,8 +125,7 @@ class cnnModel(nn.Module):
             padding=1
         )
         self.batchnorm_4 = nn.BatchNorm2d(
-            num_features=64,
-            momentum=0.9
+            num_features=64
         )
         self.maxpool_4 = nn.MaxPool2d(
             kernel_size=2,
@@ -145,8 +141,7 @@ class cnnModel(nn.Module):
             padding=1
         )
         self.batchnorm_5 = nn.BatchNorm2d(
-            num_features=128,
-            momentum=0.9
+            num_features=128
         )
         self.maxpool_5 = nn.MaxPool2d(
             kernel_size=2,
@@ -162,8 +157,7 @@ class cnnModel(nn.Module):
             padding=1
         )
         self.batchnorm_6 = nn.BatchNorm2d(
-            num_features=256,
-            momentum=0.9
+            num_features=256
         )
         self.maxpool_6 = nn.MaxPool2d(
             kernel_size=2,
@@ -179,8 +173,7 @@ class cnnModel(nn.Module):
             padding=1
         )
         self.batchnorm_7 = nn.BatchNorm2d(
-            num_features=512,
-            momentum=0.9
+            num_features=512
         )
         self.maxpool_7 = nn.MaxPool2d(
             kernel_size=2,
@@ -278,13 +271,22 @@ class cnnModel(nn.Module):
 torch.manual_seed(2687)
 cnn = cnnModel()
 criterion = nn.CrossEntropyLoss()
-optimizer = torch.optim.Adam(cnn.parameters(), lr=0.01)
+optimizer = torch.optim.SGD(
+    cnn.parameters(), 
+    lr=0.1,
+    momentum=0.9
+)
+scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+    optimizer=optimizer,
+    mode='min',
+    factor=0.9
+)
 
 print(next(cnn.parameters()).device)
 ```
 
 ```{python}
-epochs = 10
+epochs = 5
 train_losses = []
 test_losses = []
 train_correct = []
@@ -320,6 +322,7 @@ for i in range(epochs):
             test_cr += (predicted == y_test).sum()
 
     loss = criterion(y_val, y_test)
+    scheduler.step(loss)
     test_losses.append(loss)
     test_correct.append(test_cr)
 ```
