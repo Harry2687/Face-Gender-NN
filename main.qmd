@@ -1,0 +1,283 @@
+```{python}
+import os
+import random
+import numpy as np
+import matplotlib.pyplot as plt
+import torch
+import torch.nn as nn
+import torch.optim as optim
+import torchvision
+import torchvision.transforms as transforms
+import torchvision.datasets as datasets
+import torch.nn.functional as F
+from torch.utils.data import DataLoader, random_split
+
+import modules.models as models
+```
+
+```{python}
+if torch.backends.mps.is_available():
+    device = torch.device('mps')
+elif torch.cuda.is_available():
+    device = torch.device('cuda')
+else:
+    device = torch.device('cpu')
+
+torch.set_default_device(device)
+
+print(device)
+```
+
+```{python}
+imsize = 128
+batch_size = 500
+
+loader = transforms.Compose([
+    transforms.Resize([imsize, imsize]),
+    transforms.ToTensor()
+])
+
+dataset = datasets.ImageFolder(
+    root='data/CelebA/',
+    transform=loader
+)
+
+train_size = int(0.8*len(dataset))
+test_size = len(dataset) - train_size
+
+train_dataset, test_dataset = random_split(
+    dataset,
+    [train_size, test_size],
+    generator=torch.Generator(device=device)
+)
+
+train_loader = DataLoader(
+    train_dataset,
+    batch_size=batch_size,
+    shuffle=True,
+    generator=torch.Generator(device=device)
+)
+
+test_loader = DataLoader(
+    test_dataset,
+    batch_size=batch_size,
+    shuffle=True,
+    generator=torch.Generator(device=device)
+)
+
+classes = ('Female', 'Male')
+```
+
+```{python}
+dataiter = iter(train_loader)
+images, labels = next(dataiter)
+```
+
+```{python}
+# view image
+unloader = transforms.ToPILImage()
+
+plt.ion()
+
+def imshow(tensor):
+    image = tensor.cpu().clone()
+    image = image.squeeze(0)
+    image = unloader(image)
+    plt.imshow(image)
+    plt.pause(0.001)
+
+plt.figure()
+
+rand_num = random.randint(0, batch_size-1)
+
+imshow(images[rand_num])
+print(classes[labels[rand_num]])
+```
+
+```{python}
+torch.manual_seed(2687)
+cnn = models.cnnModel3_128()
+criterion = nn.CrossEntropyLoss()
+optimizer = torch.optim.SGD(
+    cnn.parameters(), 
+    lr=0.1,
+    momentum=0.9,
+    weight_decay=0.001
+)
+scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+    optimizer=optimizer,
+    mode='min',
+    factor=0.9
+)
+
+print(next(cnn.parameters()).device)
+print(cnn)
+```
+
+```{python}
+x = X_train.to(device)
+
+# Layer 1
+x = cnn.conv_1(x)
+print(x.shape)
+x = cnn.batchnorm_1(x)
+x = F.relu(x)
+x = cnn.maxpool_1(x)
+print(x.shape)
+
+# Layer 2
+x = cnn.conv_2(x)
+print(x.shape)
+x = cnn.batchnorm_2(x)
+x = F.relu(x)
+x = cnn.maxpool_2(x)
+print(x.shape)
+
+# Layer 3
+x = cnn.conv_3(x)
+print(x.shape)
+x = cnn.batchnorm_3(x)
+x = F.relu(x)
+x = cnn.maxpool_3(x)
+print(x.shape)
+
+# Layer 4
+x = cnn.conv_4(x)
+print(x.shape)
+x = cnn.batchnorm_4(x)
+x = F.relu(x)
+x = cnn.maxpool_4(x)
+print(x.shape)
+
+# Layer 5
+x = cnn.conv_5(x)
+print(x.shape)
+x = cnn.batchnorm_5(x)
+x = F.relu(x)
+x = cnn.maxpool_5(x)
+print(x.shape)
+
+# Layer 6
+x = cnn.conv_6(x)
+print(x.shape)
+x = cnn.batchnorm_6(x)
+x = F.relu(x)
+x = cnn.maxpool_6(x)
+print(x.shape)
+
+# Layer 7
+x = cnn.conv_7(x)
+print(x.shape)
+x = cnn.batchnorm_7(x)
+x = F.relu(x)
+x = cnn.maxpool_7(x)
+x = cnn.dropout_1(x)
+
+# Layer 8
+x = torch.flatten(x, 1)
+x = cnn.fc_1(x)
+x = F.relu(x)
+x = cnn.dropout_2(x)
+
+# Layer 9
+x = cnn.fc_2(x)
+x = F.relu(x)
+x = cnn.dropout_3(x)
+
+# Output Layer
+x = cnn.fc_3(x)
+x = F.softmax(x, dim=1)
+```
+
+```{python}
+epochs = 5
+train_losses = []
+test_losses = []
+train_correct = []
+test_correct = []
+for i in range(epochs):
+    train_cr = 0
+    test_cr = 0
+
+    for j, (X_train, y_train) in enumerate(train_loader):
+        j += 1
+        X_train = X_train.to(device)
+        y_pred = cnn.forward(X_train)
+        loss = criterion(y_pred, y_train)
+
+        predicted = torch.max(y_pred.data, 1)[1]
+        batch_cr = (predicted == y_train).sum()
+        train_cr += batch_cr
+
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+
+        print(f'Epoch: {i+1} | Batch: {j}')
+        print(f'Loss: {loss.item()} | Accuracy: {batch_cr/len(X_train)}')
+    
+    train_losses.append(loss.item())
+    train_correct.append(train_cr.item())
+
+    with torch.no_grad():
+        for j, (X_test, y_test) in enumerate(test_loader):
+            X_test = X_test.to(device)
+            y_val = cnn.forward(X_test)
+            predicted = torch.max(y_val.data, 1)[1]
+            test_cr += (predicted == y_test).sum()
+
+    loss = criterion(y_val, y_test)
+    scheduler.step(loss)
+    test_losses.append(loss.item())
+    test_correct.append(test_cr.item())
+```
+
+```{python}
+# Graph the loss at epoch
+plt.plot(train_losses, label="Training Loss")
+plt.plot(test_losses, label="Validation Loss")
+plt.title("Loss at Epoch")
+plt.legend()
+```
+
+```{python}
+# graph the accuracy at the end of each epoch
+plt.plot([t/train_size for t in train_correct], label="Training Accuracy")
+plt.plot([t/test_size for t in test_correct], label="Validation Accuracy")
+plt.title("Accuracy at the end of each Epoch")
+plt.legend()
+```
+
+
+```{python}
+valid_dataset = datasets.ImageFolder(
+    root='data/Validation/',
+    transform=loader
+)
+
+
+valid_loader = DataLoader(
+    valid_dataset,
+    batch_size=len(valid_dataset),
+    shuffle=True,
+    generator=torch.Generator(device=device)
+)
+
+dataiter = iter(valid_loader)
+images, labels = next(dataiter)
+
+imshow(torchvision.utils.make_grid(images))
+
+print(' '.join(f'{classes[labels[j]]:5s}' for j in range(len(valid_dataset))))
+```
+
+
+```{python}
+cnn_output = cnn.forward(images.to(device))
+y_pred = torch.max(cnn_output, 1)[1]
+
+for i in range(len(valid_dataset)):
+    imshow(images[i])
+
+    print(f'Female weight: {cnn_output[i][0]}\nMale weight: {cnn_output[i][1]}')
+```

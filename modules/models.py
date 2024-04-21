@@ -1,80 +1,25 @@
-```{python}
-import os
 import torch
 import torch.nn as nn
-import torch.optim as optim
-from PIL import Image
-import matplotlib.pyplot as plt
-import torchvision.transforms as transforms
-import torchvision.datasets as datasets
 import torch.nn.functional as F
-from torch.utils.data import DataLoader, random_split
-import numpy as np
-from sklearn.model_selection import train_test_split
-```
 
-```{python}
-if torch.backends.mps.is_available():
-    device = torch.device('mps')
-elif torch.cuda.is_available():
-    device = torch.device('cuda')
-else:
-    device = torch.device('cpu')
-
-torch.set_default_device(device)
-
-print(device)
-```
-
-```{python}
-imsize = 64
-
-loader = transforms.Compose([
-    transforms.Resize(imsize),
-    transforms.ToTensor()
-])
-
-dataset = datasets.ImageFolder(
-    root='data/ThisPersonDoesNotExist/',
-    transform=loader
-)
-
-train_size = int(0.8*len(dataset))
-test_size = len(dataset) - train_size
-
-train_dataset, test_dataset = random_split(
-    dataset,
-    [train_size, test_size],
-    generator=torch.Generator(device=device)
-)
-
-train_loader = DataLoader(
-    train_dataset,
-    batch_size=500,
-    shuffle=True,
-    generator=torch.Generator(device=device)
-)
-
-test_loader = DataLoader(
-    test_dataset,
-    batch_size=500,
-    shuffle=True,
-    generator=torch.Generator(device=device)
-)
-```
-
-```{python}
-for i, (X_train, y_train) in enumerate(train_loader):
-    print(X_train.device)
-    print(y_train.device)
-    break
-```
-
-```{python}
-class cnnModel(nn.Module):
+class mlpModel_64(nn.Module):
     def __init__(self):
         super().__init__()
-        # Layer 1: 3*64*64 -> 8*62*62
+        self.fc1 = nn.Linear(3*64*64, 100)
+        self.fc2 = nn.Linear(100, 50)
+        self.out = nn.Linear(50, 2)
+
+    def forward(self, x):
+        x = torch.flatten(x, 1)
+        x = F.relu(self.fc1(x))
+        x = F.relu(self.fc2(x))
+        x = self.out(x)
+        return x
+
+class cnnModel1_64(nn.Module):
+    def __init__(self):
+        super().__init__()
+        # Layer 1: 3*64*64 -> 8*31*31
         self.conv_1 = nn.Conv2d(
             in_channels=3, 
             out_channels=8, 
@@ -86,9 +31,10 @@ class cnnModel(nn.Module):
         )
         self.maxpool_1 = nn.MaxPool2d(
             kernel_size=2, 
-            stride=2
+            stride=2,
+            padding=0
         )
-        # Layer 2: 8*62*62 -> 16*29*29
+        # Layer 2: 8*31*31 -> 16*14*14
         self.conv_2 = nn.Conv2d(
             in_channels=8, 
             out_channels=16, 
@@ -100,13 +46,14 @@ class cnnModel(nn.Module):
         )
         self.maxpool_2 = nn.MaxPool2d(
             kernel_size=2,
-            stride=2
+            stride=2,
+            padding=0
         )
-        # Layer 3: 16*29*29 -> 32*13*13
+        # Layer 3: 16*14*14 -> 32*13*13
         self.conv_3 = nn.Conv2d(
             in_channels=16,
             out_channels=32,
-            kernel_size=1,
+            kernel_size=3,
             stride=1
         )
         self.batchnorm_3 = nn.BatchNorm2d(
@@ -114,7 +61,8 @@ class cnnModel(nn.Module):
         )
         self.maxpool_3 = nn.MaxPool2d(
             kernel_size=2,
-            stride=2
+            stride=2,
+            padding=0
         )
         # Layer 4: 32*13*13 -> 64*7*7
         self.conv_4 = nn.Conv2d(
@@ -265,75 +213,107 @@ class cnnModel(nn.Module):
         x = F.softmax(x, dim=1)
 
         return x
-```
-
-```{python}
-torch.manual_seed(2687)
-cnn = cnnModel()
-criterion = nn.CrossEntropyLoss()
-optimizer = torch.optim.SGD(
-    cnn.parameters(), 
-    lr=0.1,
-    momentum=0.9
-)
-scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-    optimizer=optimizer,
-    mode='min',
-    factor=0.9
-)
-
-print(next(cnn.parameters()).device)
-```
-
-```{python}
-epochs = 5
-train_losses = []
-test_losses = []
-train_correct = []
-test_correct = []
-for i in range(epochs):
-    train_cr = 0
-    test_cr = 0
-
-    for j, (X_train, y_train) in enumerate(train_loader):
-        j += 1
-        X_train = X_train.to(device)
-        y_pred = cnn.forward(X_train)
-        loss = criterion(y_pred, y_train)
-
-        predicted = torch.max(y_pred.data, 1)[1]
-        batch_cr = (predicted == y_train).sum()
-        train_cr += batch_cr
-
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
-
-        print(f'Epoch: {i+1}  Batch: {j}  Loss: {loss.item()}')
     
-    train_losses.append(loss)
-    train_correct.append(train_cr)
+class cnnModel2_64(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.conv1 = nn.Conv2d(3, 6, 5)
+        self.pool = nn.MaxPool2d(2, 2)
+        self.conv2 = nn.Conv2d(6, 16, 5)
+        self.fc1 = nn.Linear(16 * 13 * 13, 120)
+        self.fc2 = nn.Linear(120, 84)
+        self.fc3 = nn.Linear(84, 10)
 
-    with torch.no_grad():
-        for j, (X_test, y_test) in enumerate(test_loader):
-            X_test = X_test.to(device)
-            y_val = cnn.forward(X_test)
-            predicted = torch.max(y_val.data, 1)[1]
-            test_cr += (predicted == y_test).sum()
+    def forward(self, x):
+        x = self.pool(F.relu(self.conv1(x)))
+        x = self.pool(F.relu(self.conv2(x)))
+        x = torch.flatten(x, 1) # flatten all dimensions except batch
+        x = F.relu(self.fc1(x))
+        x = F.relu(self.fc2(x))
+        x = self.fc3(x)
+        return x
+    
+class cnnModel3_128(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.conv_1 = nn.Conv2d(
+            in_channels=3,
+            out_channels=16,
+            kernel_size=3,
+            stride=1
+        )
+        self.maxpool_1 = nn.MaxPool2d(
+            kernel_size=2,
+            stride=2
+        )
+        self.conv_2 = nn.Conv2d(
+            in_channels=16,
+            out_channels=32,
+            kernel_size=3,
+            stride=1
+        )
+        self.maxpool_2 = nn.MaxPool2d(
+            kernel_size=2,
+            stride=2
+        )
+        self.conv_3 = nn.Conv2d(
+            in_channels=32,
+            out_channels=64,
+            kernel_size=3,
+            stride=1
+        )
+        self.maxpool_3 = nn.MaxPool2d(
+            kernel_size=2,
+            stride=2
+        )
+        self.conv_4 = nn.Conv2d(
+            in_channels=64,
+            out_channels=128,
+            kernel_size=3,
+            stride=1
+        )
+        self.maxpool_4 = nn.MaxPool2d(
+            kernel_size=2,
+            stride=2
+        )
+        self.fc_1 = nn.Linear(
+            in_features=6*6*128,
+            out_features=4096
+        )
+        self.fc_2 = nn.Linear(
+            in_features=4096,
+            out_features=4096
+        )
+        self.fc_3 = nn.Linear(
+            in_features=4096,
+            out_features=2
+        )
 
-    loss = criterion(y_val, y_test)
-    scheduler.step(loss)
-    test_losses.append(loss)
-    test_correct.append(test_cr)
-```
+    def forward(self, x):
+        x = self.conv_1(x)
+        x = F.relu(x)
+        x = self.maxpool_1(x)
+        
+        x = self.conv_2(x)
+        x = F.relu(x)
+        x = self.maxpool_2(x)
 
-```{python}
-```
+        x = self.conv_3(x)
+        x = F.relu(x)
+        x = self.maxpool_3(x)
 
-```{python}
-with torch.no_grad():
-    y_eval = cnn.forward(X_test)
-    loss = criterion(y_eval, y_test)
+        x = self.conv_4(x)
+        x = F.relu(x)
+        x = self.maxpool_4(x)
 
-loss
-```
+        x = torch.flatten(x, 1)
+        x = self.fc_1(x)
+        x = F.relu(x)
+
+        x = self.fc_2(x)
+        x = F.relu(x)
+
+        x = self.fc_3(x)
+        x = F.softmax(x, dim=1)
+
+        return x
