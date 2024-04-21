@@ -251,25 +251,25 @@ plt.legend()
 
 
 ```{python}
-valid_dataset = datasets.ImageFolder(
+external_test_dataset = datasets.ImageFolder(
     root='data/Validation/',
     transform=loader
 )
 
 
-valid_loader = DataLoader(
-    valid_dataset,
-    batch_size=len(valid_dataset),
+external_test_loader = DataLoader(
+    external_test_dataset,
+    batch_size=len(external_test_dataset),
     shuffle=True,
     generator=torch.Generator(device=device)
 )
 
-dataiter = iter(valid_loader)
+dataiter = iter(external_test_loader)
 images, labels = next(dataiter)
 
 imshow(torchvision.utils.make_grid(images))
 
-print(' '.join(f'{classes[labels[j]]:5s}' for j in range(len(valid_dataset))))
+print(' '.join(f'{classes[labels[j]]:5s}' for j in range(len(external_test_dataset))))
 ```
 
 
@@ -277,12 +277,19 @@ print(' '.join(f'{classes[labels[j]]:5s}' for j in range(len(valid_dataset))))
 cnn_output = cnn.forward(images.to(device))
 y_pred = torch.max(cnn_output, 1)[1]
 
-for i in range(len(valid_dataset)):
+for i in range(len(external_test_dataset)):
     imshow(images[i])
 
     print(f'Female weight: {cnn_output[i][0]}\nMale weight: {cnn_output[i][1]}')
 
-print((y_pred == labels).sum().item()/len(labels))
+```
+
+```{python}
+ext_correct = (y_pred == labels).sum().item()
+ext_incorrect = (y_pred != labels).sum().item()
+print(f'Correct predictions: {ext_correct}')
+print(f'Incorrect predictions: {ext_incorrect}')
+print(f'Accurary: {ext_correct/(ext_correct+ext_incorrect)}')
 ```
 
 ```{python}
