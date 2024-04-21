@@ -34,6 +34,7 @@ batch_size = 500
 
 loader = transforms.Compose([
     transforms.Resize([imsize, imsize]),
+    transforms.Grayscale(1),
     transforms.ToTensor()
 ])
 
@@ -190,7 +191,7 @@ x = F.softmax(x, dim=1)
 ```
 
 ```{python}
-epochs = 5
+epochs = 10
 train_losses = []
 test_losses = []
 train_correct = []
@@ -280,4 +281,10 @@ for i in range(len(valid_dataset)):
     imshow(images[i])
 
     print(f'Female weight: {cnn_output[i][0]}\nMale weight: {cnn_output[i][1]}')
+
+print((y_pred == labels).sum().item()/len(labels))
+```
+
+```{python}
+torch.save(cnn.state_dict(), 'cnn_model.pt')
 ```

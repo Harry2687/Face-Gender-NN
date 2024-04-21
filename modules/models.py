@@ -237,7 +237,7 @@ class cnnModel3_128(nn.Module):
     def __init__(self):
         super().__init__()
         self.conv_1 = nn.Conv2d(
-            in_channels=3,
+            in_channels=1,
             out_channels=16,
             kernel_size=3,
             stride=1
