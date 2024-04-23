@@ -276,13 +276,22 @@ class cnnModel3_128(nn.Module):
             kernel_size=2,
             stride=2
         )
+        self.dropout_1 = nn.Dropout(
+            p=0.5
+        )
         self.fc_1 = nn.Linear(
             in_features=6*6*128,
             out_features=4096
         )
+        self.dropout_2 = nn.Dropout(
+            p=0.5
+        )
         self.fc_2 = nn.Linear(
             in_features=4096,
             out_features=4096
+        )
+        self.dropout_3 = nn.Dropout(
+            p=0.5
         )
         self.fc_3 = nn.Linear(
             in_features=4096,
@@ -307,12 +316,15 @@ class cnnModel3_128(nn.Module):
         x = self.maxpool_4(x)
 
         x = torch.flatten(x, 1)
+        x = self.dropout_1(x)
         x = self.fc_1(x)
         x = F.relu(x)
 
+        x = self.dropout_2(x)
         x = self.fc_2(x)
         x = F.relu(x)
 
+        x = self.dropout_3(x)
         x = self.fc_3(x)
         x = F.softmax(x, dim=1)
 
