@@ -1,3 +1,4 @@
+Import stuff.
 
 ```{python}
 import os
@@ -17,6 +18,8 @@ from torch.utils.data import DataLoader, random_split
 import modules.models as models
 ```
 
+Set device.
+
 ```{python}
 if torch.backends.mps.is_available():
     device = torch.device('mps')
@@ -30,6 +33,8 @@ torch.set_default_device(device)
 print(device)
 ```
 
+Load train and test iterable using datasets.CelebA.
+
 ```{python}
 imsize = 128
 batch_size = 500
@@ -37,7 +42,8 @@ batch_size = 500
 loader = transforms.Compose([
     transforms.Resize([imsize, imsize]),
     transforms.Grayscale(1),
-    transforms.ToTensor()
+    transforms.ToTensor(),
+    transforms.Normalize(0, 1)
 ])
 
 dataset = datasets.CelebA(
@@ -74,6 +80,8 @@ test_loader = DataLoader(
 dataiter = iter(train_loader)
 images, labels = next(dataiter)
 ```
+
+Choose factor to predict.
 
 ```{python}
 attributes = (
@@ -119,9 +127,11 @@ attributes = (
     'Young'
 )
 
-factor = attributes.index('Attractive')
-classes = ('Not Attractive', 'Attractive')
+factor = attributes.index('Male')
+classes = ('Not ' + attributes[factor], attributes[factor])
 ```
+
+Show random image with factors.
 
 ```{python}
 # view image
@@ -149,6 +159,8 @@ for i, value in enumerate(labels[rand_num]):
         print(attributes[i])
 ```
 
+Set model and other stuff.
+
 ```{python}
 torch.manual_seed(2687)
 cnn = models.cnnModel3_128()
@@ -169,8 +181,10 @@ print(next(cnn.parameters()).device)
 print(cnn)
 ```
 
+Train for a specified number of epochs
+
 ```{python}
-epochs = 10
+epochs = 6
 train_losses = []
 test_losses = []
 train_correct = []
@@ -214,13 +228,16 @@ for i in range(epochs):
     test_correct.append(test_cr.item())
 ```
 
+Graph loss at the end of each epoch.
+
 ```{python}
-# Graph the loss at epoch
 plt.plot(train_losses, label="Training Loss")
 plt.plot(test_losses, label="Validation Loss")
 plt.title("Loss at Epoch")
 plt.legend()
 ```
+
+Graph accuracy of each epoch.
 
 ```{python}
 # graph the accuracy at the end of each epoch
@@ -230,13 +247,26 @@ plt.title("Accuracy at the end of each Epoch")
 plt.legend()
 ```
 
+Save weights and biases.
+
+```{python}
+torch.save(cnn.state_dict(), 'models/cnn3_128_v1.pth')
+```
+
+Load weights and biases into a new model object.
+
+```{python}
+test_cnn = models.cnnModel3_128()
+test_cnn.load_state_dict(torch.load('models/cnn3_128_v1.pt'))
+```
+
+Load and show external test images.
 
 ```{python}
 external_test_dataset = datasets.ImageFolder(
     root='data/Validation/',
     transform=loader
 )
-
 
 external_test_loader = DataLoader(
     external_test_dataset,
@@ -253,16 +283,21 @@ imshow(torchvision.utils.make_grid(images))
 print(' '.join(f'{classes[labels[j]]:5s}' for j in range(len(external_test_dataset))))
 ```
 
+Make predictions based on saved model.
 
 ```{python}
-cnn_output = cnn.forward(images.to(device))
+cnn_output = test_cnn.forward(images.to(device))
 y_pred = torch.max(cnn_output, 1)[1]
 
 for i in range(len(external_test_dataset)):
     imshow(images[i])
 
-    print(f'{classes[0]} weight: {cnn_output[i][0]}\n{classes[1]} weight: {cnn_output[i][1]}')
+    print(f'Prediction: {classes[y_pred[i]]}')
+    print(f'{classes[0]} weight: {cnn_output[i][0]}')
+    print(f'{classes[1]} weight: {cnn_output[i][1]}')
 ```
+
+Show number of correct and incorrect predictions.
 
 ```{python}
 ext_correct = (y_pred == labels).sum().item()
@@ -270,4 +305,12 @@ ext_incorrect = (y_pred != labels).sum().item()
 print(f'Correct predictions: {ext_correct}')
 print(f'Incorrect predictions: {ext_incorrect}')
 print(f'Accurary: {ext_correct/(ext_correct+ext_incorrect)}')
+```
+
+Show incorrect predictions.
+
+```{python}
+for i in range(len(external_test_dataset)):
+    if y_pred[i] != labels[i]:
+        imshow(images[i])
 ```

@@ -242,6 +242,9 @@ class cnnModel3_128(nn.Module):
             kernel_size=3,
             stride=1
         )
+        self.batchnorm_1 = nn.BatchNorm2d(
+            num_features=16
+        )
         self.maxpool_1 = nn.MaxPool2d(
             kernel_size=2,
             stride=2
@@ -251,6 +254,9 @@ class cnnModel3_128(nn.Module):
             out_channels=32,
             kernel_size=3,
             stride=1
+        )
+        self.batchnorm_2 = nn.BatchNorm2d(
+            num_features=32
         )
         self.maxpool_2 = nn.MaxPool2d(
             kernel_size=2,
@@ -262,6 +268,9 @@ class cnnModel3_128(nn.Module):
             kernel_size=3,
             stride=1
         )
+        self.batchnorm_3 = nn.BatchNorm2d(
+            num_features=64
+        )
         self.maxpool_3 = nn.MaxPool2d(
             kernel_size=2,
             stride=2
@@ -271,6 +280,9 @@ class cnnModel3_128(nn.Module):
             out_channels=128,
             kernel_size=3,
             stride=1
+        )
+        self.batchnorm_4 = nn.BatchNorm2d(
+            num_features=128
         )
         self.maxpool_4 = nn.MaxPool2d(
             kernel_size=2,
@@ -300,18 +312,22 @@ class cnnModel3_128(nn.Module):
 
     def forward(self, x):
         x = self.conv_1(x)
+        x = self.batchnorm_1(x)
         x = F.relu(x)
         x = self.maxpool_1(x)
         
         x = self.conv_2(x)
+        x = self.batchnorm_2(x)
         x = F.relu(x)
         x = self.maxpool_2(x)
 
         x = self.conv_3(x)
+        x = self.batchnorm_3(x)
         x = F.relu(x)
         x = self.maxpool_3(x)
 
         x = self.conv_4(x)
+        x = self.batchnorm_4(x)
         x = F.relu(x)
         x = self.maxpool_4(x)
 
