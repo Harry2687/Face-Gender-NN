@@ -1,6 +1,9 @@
+Import stuff.
+
 ```{python}
 import os
 import random
+import gdown
 import numpy as np
 import matplotlib.pyplot as plt
 import torch
@@ -15,6 +18,8 @@ from torch.utils.data import DataLoader, random_split
 import modules.models as models
 ```
 
+Set device.
+
 ```{python}
 if torch.backends.mps.is_available():
     device = torch.device('mps')
@@ -28,6 +33,8 @@ torch.set_default_device(device)
 print(device)
 ```
 
+Load train and test iterable using datasets.CelebA.
+
 ```{python}
 imsize = 128
 batch_size = 500
@@ -35,12 +42,16 @@ batch_size = 500
 loader = transforms.Compose([
     transforms.Resize([imsize, imsize]),
     transforms.Grayscale(1),
-    transforms.ToTensor()
+    transforms.ToTensor(),
+    transforms.Normalize(0, 1)
 ])
 
-dataset = datasets.ImageFolder(
-    root='data/CelebA/',
-    transform=loader
+dataset = datasets.CelebA(
+    root = './data',
+    split='all',
+    target_type='attr',
+    transform=loader,
+    download=True
 )
 
 train_size = int(0.8*len(dataset))
@@ -66,13 +77,61 @@ test_loader = DataLoader(
     generator=torch.Generator(device=device)
 )
 
-classes = ('Female', 'Male')
-```
-
-```{python}
 dataiter = iter(train_loader)
 images, labels = next(dataiter)
 ```
+
+Choose factor to predict.
+
+```{python}
+attributes = (
+    '5_o_Clock_Shadow', 
+    'Arched_Eyebrows', 
+    'Attractive', 
+    'Bags_Under_Eyes', 
+    'Bald', 
+    'Bangs', 
+    'Big_Lips', 
+    'Big_Nose', 
+    'Black_Hair', 
+    'Blond_Hair', 
+    'Blurry', 
+    'Brown_Hair', 
+    'Bushy_Eyebrows', 
+    'Chubby', 
+    'Double_Chin', 
+    'Eyeglasses', 
+    'Goatee', 
+    'Gray_Hair', 
+    'Heavy_Makeup', 
+    'High_Cheekbones', 
+    'Male', 
+    'Mouth_Slightly_Open', 
+    'Mustache', 
+    'Narrow_Eyes', 
+    'No_Beard', 
+    'Oval_Face', 
+    'Pale_Skin', 
+    'Pointy_Nose', 
+    'Receding_Hairline', 
+    'Rosy_Cheeks', 
+    'Sideburns', 
+    'Smiling', 
+    'Straight_Hair', 
+    'Wavy_Hair', 
+    'Wearing_Earrings', 
+    'Wearing_Hat', 
+    'Wearing_Lipstick', 
+    'Wearing_Necklace', 
+    'Wearing_Necktie', 
+    'Young'
+)
+
+factor = attributes.index('Male')
+classes = ('Not ' + attributes[factor], attributes[factor])
+```
+
+Show random image with factors.
 
 ```{python}
 # view image
@@ -92,8 +151,15 @@ plt.figure()
 rand_num = random.randint(0, batch_size-1)
 
 imshow(images[rand_num])
-print(classes[labels[rand_num]])
+print('Selected factor:')
+print(classes[labels[:, factor][rand_num]])
+print('\nAll factors:')
+for i, value in enumerate(labels[rand_num]):
+    if value.item() == 1:
+        print(attributes[i])
 ```
+
+Set model and other stuff.
 
 ```{python}
 torch.manual_seed(2687)
@@ -115,83 +181,10 @@ print(next(cnn.parameters()).device)
 print(cnn)
 ```
 
-```{python}
-x = X_train.to(device)
-
-# Layer 1
-x = cnn.conv_1(x)
-print(x.shape)
-x = cnn.batchnorm_1(x)
-x = F.relu(x)
-x = cnn.maxpool_1(x)
-print(x.shape)
-
-# Layer 2
-x = cnn.conv_2(x)
-print(x.shape)
-x = cnn.batchnorm_2(x)
-x = F.relu(x)
-x = cnn.maxpool_2(x)
-print(x.shape)
-
-# Layer 3
-x = cnn.conv_3(x)
-print(x.shape)
-x = cnn.batchnorm_3(x)
-x = F.relu(x)
-x = cnn.maxpool_3(x)
-print(x.shape)
-
-# Layer 4
-x = cnn.conv_4(x)
-print(x.shape)
-x = cnn.batchnorm_4(x)
-x = F.relu(x)
-x = cnn.maxpool_4(x)
-print(x.shape)
-
-# Layer 5
-x = cnn.conv_5(x)
-print(x.shape)
-x = cnn.batchnorm_5(x)
-x = F.relu(x)
-x = cnn.maxpool_5(x)
-print(x.shape)
-
-# Layer 6
-x = cnn.conv_6(x)
-print(x.shape)
-x = cnn.batchnorm_6(x)
-x = F.relu(x)
-x = cnn.maxpool_6(x)
-print(x.shape)
-
-# Layer 7
-x = cnn.conv_7(x)
-print(x.shape)
-x = cnn.batchnorm_7(x)
-x = F.relu(x)
-x = cnn.maxpool_7(x)
-x = cnn.dropout_1(x)
-
-# Layer 8
-x = torch.flatten(x, 1)
-x = cnn.fc_1(x)
-x = F.relu(x)
-x = cnn.dropout_2(x)
-
-# Layer 9
-x = cnn.fc_2(x)
-x = F.relu(x)
-x = cnn.dropout_3(x)
-
-# Output Layer
-x = cnn.fc_3(x)
-x = F.softmax(x, dim=1)
-```
+Train for a specified number of epochs
 
 ```{python}
-epochs = 10
+epochs = 6
 train_losses = []
 test_losses = []
 train_correct = []
@@ -203,6 +196,7 @@ for i in range(epochs):
     for j, (X_train, y_train) in enumerate(train_loader):
         j += 1
         X_train = X_train.to(device)
+        y_train = y_train[:, factor]
         y_pred = cnn.forward(X_train)
         loss = criterion(y_pred, y_train)
 
@@ -223,6 +217,7 @@ for i in range(epochs):
     with torch.no_grad():
         for j, (X_test, y_test) in enumerate(test_loader):
             X_test = X_test.to(device)
+            y_test = y_test[:, factor]
             y_val = cnn.forward(X_test)
             predicted = torch.max(y_val.data, 1)[1]
             test_cr += (predicted == y_test).sum()
@@ -233,13 +228,16 @@ for i in range(epochs):
     test_correct.append(test_cr.item())
 ```
 
+Graph loss at the end of each epoch.
+
 ```{python}
-# Graph the loss at epoch
 plt.plot(train_losses, label="Training Loss")
 plt.plot(test_losses, label="Validation Loss")
 plt.title("Loss at Epoch")
 plt.legend()
 ```
+
+Graph accuracy of each epoch.
 
 ```{python}
 # graph the accuracy at the end of each epoch
@@ -249,13 +247,26 @@ plt.title("Accuracy at the end of each Epoch")
 plt.legend()
 ```
 
+Save weights and biases.
+
+```{python}
+torch.save(cnn.state_dict(), 'trained_models/cnn3_128_v1.pth')
+```
+
+Load weights and biases into a new model object.
+
+```{python}
+test_cnn = models.cnnModel3_128()
+test_cnn.load_state_dict(torch.load('trained_models/cnn3_128_v1.pt'))
+```
+
+Load and show external test images.
 
 ```{python}
 external_test_dataset = datasets.ImageFolder(
     root='data/Validation/',
     transform=loader
 )
-
 
 external_test_loader = DataLoader(
     external_test_dataset,
@@ -272,16 +283,21 @@ imshow(torchvision.utils.make_grid(images))
 print(' '.join(f'{classes[labels[j]]:5s}' for j in range(len(external_test_dataset))))
 ```
 
+Make predictions based on saved model.
 
 ```{python}
-cnn_output = cnn.forward(images.to(device))
+cnn_output = test_cnn.forward(images.to(device))
 y_pred = torch.max(cnn_output, 1)[1]
 
 for i in range(len(external_test_dataset)):
     imshow(images[i])
 
-    print(f'Female weight: {cnn_output[i][0]}\nMale weight: {cnn_output[i][1]}')
+    print(f'Prediction: {classes[y_pred[i]]}')
+    print(f'{classes[0]} weight: {cnn_output[i][0]}')
+    print(f'{classes[1]} weight: {cnn_output[i][1]}')
 ```
+
+Show number of correct and incorrect predictions.
 
 ```{python}
 ext_correct = (y_pred == labels).sum().item()
@@ -291,6 +307,10 @@ print(f'Incorrect predictions: {ext_incorrect}')
 print(f'Accurary: {ext_correct/(ext_correct+ext_incorrect)}')
 ```
 
+Show incorrect predictions.
+
 ```{python}
-torch.save(cnn.state_dict(), 'cnn_model.pt')
+for i in range(len(external_test_dataset)):
+    if y_pred[i] != labels[i]:
+        imshow(images[i])
 ```

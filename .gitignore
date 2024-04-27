@@ -1,5 +1,4 @@
 /data
-/models
-/CelebA_data
-.DS_Store
+/trained_models
 /modules/__pycache__
+.DS_Store
