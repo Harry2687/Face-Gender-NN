@@ -6,6 +6,7 @@ import random
 import gdown
 import numpy as np
 import matplotlib.pyplot as plt
+from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -171,10 +172,10 @@ optimizer = torch.optim.SGD(
     momentum=0.9,
     weight_decay=0.001
 )
-scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+scheduler = torch.optim.lr_scheduler.StepLR(
     optimizer=optimizer,
-    mode='min',
-    factor=0.9
+    step_size=2,
+    gamma=0.1
 )
 
 print(next(cnn.parameters()).device)
@@ -184,7 +185,7 @@ print(cnn)
 Train for a specified number of epochs
 
 ```{python}
-epochs = 6
+epochs = 10
 train_losses = []
 test_losses = []
 train_correct = []
@@ -223,9 +224,16 @@ for i in range(epochs):
             test_cr += (predicted == y_test).sum()
 
     loss = criterion(y_val, y_test)
-    scheduler.step(loss)
+    scheduler.step()
     test_losses.append(loss.item())
     test_correct.append(test_cr.item())
+
+    trained_model_dir = 'trained_models/'
+    trained_model_name = 'cnn3_128_epoch_' + str(i+1) + '.pt'
+    torch.save(
+        cnn.state_dict(), 
+        trained_model_dir + trained_model_name
+    )
 ```
 
 Graph loss at the end of each epoch.
@@ -247,19 +255,6 @@ plt.title("Accuracy at the end of each Epoch")
 plt.legend()
 ```
 
-Save weights and biases.
-
-```{python}
-torch.save(cnn.state_dict(), 'trained_models/cnn3_128_v1.pth')
-```
-
-Load weights and biases into a new model object.
-
-```{python}
-test_cnn = models.cnnModel3_128()
-test_cnn.load_state_dict(torch.load('trained_models/cnn3_128_v1.pt'))
-```
-
 Load and show external test images.
 
 ```{python}
@@ -268,9 +263,11 @@ external_test_dataset = datasets.ImageFolder(
     transform=loader
 )
 
+n_images = min(len(external_test_dataset), 1000)
+
 external_test_loader = DataLoader(
     external_test_dataset,
-    batch_size=len(external_test_dataset),
+    batch_size=n_images,
     shuffle=True,
     generator=torch.Generator(device=device)
 )
@@ -280,17 +277,27 @@ images, labels = next(dataiter)
 
 imshow(torchvision.utils.make_grid(images))
 
-print(' '.join(f'{classes[labels[j]]:5s}' for j in range(len(external_test_dataset))))
+print(' '.join(f'{classes[labels[j]]:5s}' for j in range(n_images)))
+```
+
+Load sample weights and biases into a new model object.
+
+```{python}
+test_cnn = models.cnnModel3_128()
+test_cnn.load_state_dict(torch.load('trained_models/cnn3_128_epoch_9.pt'))
 ```
 
 Make predictions based on saved model.
 
 ```{python}
-cnn_output = test_cnn.forward(images.to(device))
+test_cnn.eval()
+with torch.no_grad():
+    cnn_output = test_cnn.forward(images.to(device))
+
 y_pred = torch.max(cnn_output, 1)[1]
 
-for i in range(len(external_test_dataset)):
-    imshow(images[i])
+for i in range(n_images):
+    # imshow(images[i])
 
     print(f'Prediction: {classes[y_pred[i]]}')
     print(f'{classes[0]} weight: {cnn_output[i][0]}')
@@ -307,10 +314,22 @@ print(f'Incorrect predictions: {ext_incorrect}')
 print(f'Accurary: {ext_correct/(ext_correct+ext_incorrect)}')
 ```
 
+Plot confusion matrix.
+
+```{python}
+cm = confusion_matrix(labels.cpu(), y_pred.cpu())
+ConfusionMatrixDisplay(cm).plot()
+```
+
 Show incorrect predictions.
 
 ```{python}
-for i in range(len(external_test_dataset)):
+for i in range(n_images):
     if y_pred[i] != labels[i]:
         imshow(images[i])
+
+        print(f'Prediction: {classes[y_pred[i]]}')
+        print(f'{classes[0]} weight: {cnn_output[i][0]}')
+        print(f'{classes[1]} weight: {cnn_output[i][1]}')
 ```
+
