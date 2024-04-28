@@ -47,7 +47,7 @@ loader = transforms.Compose([
     transforms.Normalize(0, 1)
 ])
 
-dataset = datasets.CelebA(
+train_dataset = datasets.CelebA(
     root = './data',
     split='all',
     target_type='attr',
@@ -55,14 +55,19 @@ dataset = datasets.CelebA(
     download=True
 )
 
-train_size = int(0.8*len(dataset))
-test_size = len(dataset) - train_size
-
-train_dataset, test_dataset = random_split(
-    dataset,
-    [train_size, test_size],
-    generator=torch.Generator(device=device)
+test_dataset = datasets.ImageFolder(
+    root='data/ThisPersonDoesNotExist/',
+    transform=loader
 )
+
+# train_size = int(0.8*len(dataset))
+# test_size = len(dataset) - train_size
+
+# train_dataset, test_dataset = random_split(
+#     dataset,
+#     [train_size, test_size],
+#     generator=torch.Generator(device=device)
+# )
 
 train_loader = DataLoader(
     train_dataset,
@@ -195,22 +200,23 @@ for i in range(epochs):
     test_cr = 0
 
     for j, (X_train, y_train) in enumerate(train_loader):
-        j += 1
         X_train = X_train.to(device)
         y_train = y_train[:, factor]
         y_pred = cnn.forward(X_train)
         loss = criterion(y_pred, y_train)
 
         predicted = torch.max(y_pred.data, 1)[1]
-        batch_cr = (predicted == y_train).sum()
-        train_cr += batch_cr
+        train_batch_cr = (predicted == y_train).sum()
+        train_cr += train_batch_cr
 
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
-
-        print(f'Epoch: {i+1} | Batch: {j}')
-        print(f'Loss: {loss.item()} | Accuracy: {batch_cr/len(X_train)}')
+        
+        if (j+1) % 10 == 0:
+            print(f'Epoch: {i+1} | Train Batch: {j+1}')
+            print(f'Train Loss: {loss.item()}')
+            print(f'Train Accuracy: {train_batch_cr/len(X_train)}')
     
     train_losses.append(loss.item())
     train_correct.append(train_cr.item())
@@ -218,13 +224,20 @@ for i in range(epochs):
     with torch.no_grad():
         for j, (X_test, y_test) in enumerate(test_loader):
             X_test = X_test.to(device)
-            y_test = y_test[:, factor]
             y_val = cnn.forward(X_test)
-            predicted = torch.max(y_val.data, 1)[1]
-            test_cr += (predicted == y_test).sum()
+            loss = criterion(y_val, y_test)
 
-    loss = criterion(y_val, y_test)
+            predicted = torch.max(y_val.data, 1)[1]
+            test_batch_cr = (predicted == y_test).sum()
+            test_cr += test_batch_cr
+            
+            if (j+1) % 10 == 0:
+                print(f'Epoch: {i+1} | Test Batch: {j+1}')
+                print(f'Test Loss: {loss.item()}')
+                print(f'Test Accuracy: {test_batch_cr/len(X_test)}')
+
     scheduler.step()
+
     test_losses.append(loss.item())
     test_correct.append(test_cr.item())
 
@@ -248,6 +261,9 @@ plt.legend()
 Graph accuracy of each epoch.
 
 ```{python}
+train_size = len(train_dataset)
+test_size = len(test_dataset)
+
 # graph the accuracy at the end of each epoch
 plt.plot([t/train_size for t in train_correct], label="Training Accuracy")
 plt.plot([t/test_size for t in test_correct], label="Validation Accuracy")
@@ -276,15 +292,13 @@ dataiter = iter(external_test_loader)
 images, labels = next(dataiter)
 
 imshow(torchvision.utils.make_grid(images))
-
-print(' '.join(f'{classes[labels[j]]:5s}' for j in range(n_images)))
 ```
 
 Load sample weights and biases into a new model object.
 
 ```{python}
 test_cnn = models.cnnModel3_128()
-test_cnn.load_state_dict(torch.load('trained_models/cnn3_128_epoch_9.pt'))
+test_cnn.load_state_dict(torch.load('trained_models/cnn3_128_epoch_5.pt'))
 ```
 
 Make predictions based on saved model.
