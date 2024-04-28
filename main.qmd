@@ -38,7 +38,16 @@ Load train and test iterable using datasets.CelebA.
 
 ```{python}
 imsize = 128
-batch_size = 500
+batch_size = 50
+
+train_transform = transforms.Compose([
+    transforms.Resize([imsize, imsize]),
+    transforms.Grayscale(1),
+    transforms.TenCrop(int(imsize*0.8)),
+    transforms.Lambda(lambda crops: torch.stack([transforms.ToTensor()(crop) for crop in crops])),
+    transforms.Resize([imsize, imsize]),
+    transforms.Normalize(0, 1)
+])
 
 loader = transforms.Compose([
     transforms.Resize([imsize, imsize]),
@@ -51,7 +60,7 @@ train_dataset = datasets.CelebA(
     root = './data',
     split='all',
     target_type='attr',
-    transform=loader,
+    transform=train_transform,
     download=True
 )
 
@@ -156,7 +165,7 @@ plt.figure()
 
 rand_num = random.randint(0, batch_size-1)
 
-imshow(images[rand_num])
+imshow(torchvision.utils.make_grid(images[rand_num]))
 print('Selected factor:')
 print(classes[labels[:, factor][rand_num]])
 print('\nAll factors:')
@@ -202,7 +211,11 @@ for i in range(epochs):
     for j, (X_train, y_train) in enumerate(train_loader):
         X_train = X_train.to(device)
         y_train = y_train[:, factor]
-        y_pred = cnn.forward(X_train)
+
+        bs, ncrops, c, h, w = X_train.size()
+        y_pred_crops = cnn.forward(X_train.view(-1, c, h, w))
+        y_pred = y_pred_crops.view(bs, ncrops, -1).mean(1)
+
         loss = criterion(y_pred, y_train)
 
         predicted = torch.max(y_pred.data, 1)[1]
@@ -294,11 +307,27 @@ images, labels = next(dataiter)
 imshow(torchvision.utils.make_grid(images))
 ```
 
+```{python}
+for i in range(epochs):
+    test_cnn = models.cnnModel3_128()
+    test_cnn.load_state_dict(torch.load(f'trained_models/cnn3_128_epoch_{i+1}.pt'))
+
+    test_cnn.eval()
+    with torch.no_grad():
+        cnn_output = test_cnn.forward(images.to(device))
+
+    y_pred = torch.max(cnn_output, 1)[1]
+
+    ext_correct = (y_pred == labels).sum().item()
+    ext_incorrect = (y_pred != labels).sum().item()
+    print(f'Model {i+1} Accurary: {ext_correct/(ext_correct+ext_incorrect)}')
+```
+
 Load sample weights and biases into a new model object.
 
 ```{python}
 test_cnn = models.cnnModel3_128()
-test_cnn.load_state_dict(torch.load('trained_models/cnn3_128_epoch_5.pt'))
+test_cnn.load_state_dict(torch.load('trained_models/cnn3_128_epoch_6.pt'))
 ```
 
 Make predictions based on saved model.
