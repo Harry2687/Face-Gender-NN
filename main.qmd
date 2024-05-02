@@ -60,7 +60,7 @@ train_dataset = datasets.CelebA(
     root = './data',
     split='all',
     target_type='attr',
-    transform=train_transform,
+    transform=loader,
     download=True
 )
 
@@ -178,7 +178,7 @@ Set model and other stuff.
 
 ```{python}
 torch.manual_seed(2687)
-cnn = models.cnnModel3_128()
+cnn = models.resnetModel_128()
 criterion = nn.CrossEntropyLoss()
 optimizer = torch.optim.SGD(
     cnn.parameters(), 
@@ -212,9 +212,11 @@ for i in range(epochs):
         X_train = X_train.to(device)
         y_train = y_train[:, factor]
 
-        bs, ncrops, c, h, w = X_train.size()
-        y_pred_crops = cnn.forward(X_train.view(-1, c, h, w))
-        y_pred = y_pred_crops.view(bs, ncrops, -1).mean(1)
+        # bs, ncrops, c, h, w = X_train.size()
+        # y_pred_crops = cnn.forward(X_train.view(-1, c, h, w))
+        # y_pred = y_pred_crops.view(bs, ncrops, -1).mean(1)
+
+        y_pred = cnn.forward(X_train)
 
         loss = criterion(y_pred, y_train)
 
@@ -309,7 +311,7 @@ imshow(torchvision.utils.make_grid(images))
 
 ```{python}
 for i in range(epochs):
-    test_cnn = models.cnnModel3_128()
+    test_cnn = models.resnetModel_128()
     test_cnn.load_state_dict(torch.load(f'trained_models/cnn3_128_epoch_{i+1}.pt'))
 
     test_cnn.eval()
@@ -327,7 +329,7 @@ Load sample weights and biases into a new model object.
 
 ```{python}
 test_cnn = models.cnnModel3_128()
-test_cnn.load_state_dict(torch.load('trained_models/cnn3_128_epoch_6.pt'))
+test_cnn.load_state_dict(torch.load('trained_models/cnn3_128_epoch_2.pt'))
 ```
 
 Make predictions based on saved model.

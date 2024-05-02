@@ -345,3 +345,60 @@ class cnnModel3_128(nn.Module):
         x = F.softmax(x, dim=1)
 
         return x
+    
+def conv_block(in_channels, out_channels, pool=False):
+    layers = [
+        nn.Conv2d(
+            in_channels, 
+            out_channels, 
+            kernel_size=3, 
+            padding=1
+        ),
+        nn.BatchNorm2d(out_channels),
+        nn.ReLU()
+    ]
+    if pool:
+        layers.append(
+            nn.MaxPool2d(2)
+        )
+    return nn.Sequential(*layers)
+
+class resnetModel_128(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.conv_1 = conv_block(1, 64, pool=True)
+        self.res_1 = nn.Sequential(
+            conv_block(64, 64), 
+            conv_block(64, 64)
+        )
+        self.conv_2 = conv_block(64, 256, pool=True)
+        self.res_2 = nn.Sequential(
+            conv_block(256, 256),
+            conv_block(256, 256)
+        )
+        self.conv_3 = conv_block(256, 256, pool=True)
+        self.res_3 = nn.Sequential(
+            conv_block(256, 256),
+            conv_block(256, 256)
+        )
+        self.classifier = nn.Sequential(
+            nn.Flatten(),
+            nn.Linear(16*16*256, 4096*2),
+            nn.Dropout(0.5),
+            nn.ReLU(),
+            nn.Linear(4096*2, 4096),
+            nn.Dropout(0.5),
+            nn.ReLU(),
+            nn.Linear(4096, 2)
+        )
+    
+    def forward(self, x):
+        x = self.conv_1(x)
+        x = self.res_1(x) + x
+        x = self.conv_2(x)
+        x = self.res_2(x) + x
+        x = self.conv_3(x)
+        x = self.res_3(x) + x
+        x = self.classifier(x)
+        x = F.softmax(x, dim=1)
+        return x
