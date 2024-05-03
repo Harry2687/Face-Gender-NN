@@ -381,15 +381,20 @@ class resnetModel_128(nn.Module):
             conv_block(256, 256),
             conv_block(256, 256)
         )
+        self.conv_4 = conv_block(256, 256, pool=True)
+        self.res_4 = nn.Sequential(
+            conv_block(256, 256),
+            conv_block(256, 256)
+        )
         self.classifier = nn.Sequential(
             nn.Flatten(),
-            nn.Linear(16*16*256, 4096*2),
+            nn.Linear(8*8*256, 2048),
             nn.Dropout(0.5),
             nn.ReLU(),
-            nn.Linear(4096*2, 4096),
+            nn.Linear(2048, 2048),
             nn.Dropout(0.5),
             nn.ReLU(),
-            nn.Linear(4096, 2)
+            nn.Linear(2048, 2)
         )
     
     def forward(self, x):
@@ -399,6 +404,8 @@ class resnetModel_128(nn.Module):
         x = self.res_2(x) + x
         x = self.conv_3(x)
         x = self.res_3(x) + x
+        x = self.conv_4(x)
+        x = self.res_4(x) + x
         x = self.classifier(x)
         x = F.softmax(x, dim=1)
         return x
