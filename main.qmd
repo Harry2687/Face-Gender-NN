@@ -38,7 +38,7 @@ print(device)
 Load train and test iterable using datasets.CelebA.
 
 ```{python}
-imsize = 128
+imsize = int(64/0.8)
 batch_size = 10
 
 fivecrop_transform = transforms.Compose([
@@ -46,12 +46,12 @@ fivecrop_transform = transforms.Compose([
     transforms.Grayscale(1),
     transforms.FiveCrop(int(imsize*0.8)),
     transforms.Lambda(lambda crops: torch.stack([transforms.ToTensor()(crop) for crop in crops])),
-    transforms.Resize([imsize, imsize]),
+    # transforms.Resize([imsize, imsize]),
     transforms.Normalize(0, 1)
 ])
 
 loader = transforms.Compose([
-    transforms.Resize([imsize, imsize]),
+    transforms.Resize([int(imsize*0.8), int(imsize*0.8)]),
     transforms.Grayscale(1),
     transforms.ToTensor(),
     transforms.Normalize(0, 1)
@@ -143,7 +143,7 @@ attributes = (
     'Young'
 )
 
-factor = attributes.index('Attractive')
+factor = attributes.index('Male')
 classes = ('Not ' + attributes[factor], attributes[factor])
 ```
 
@@ -168,7 +168,7 @@ Set model and other stuff.
 
 ```{python}
 torch.manual_seed(2687)
-cnn = models.resnetModel_128()
+cnn = models.resnetModel_64()
 criterion = nn.CrossEntropyLoss()
 optimizer = torch.optim.SGD(
     cnn.parameters(), 
@@ -318,7 +318,7 @@ func.imshow(torchvision.utils.make_grid(images))
 
 ```{python}
 for i in range(epochs):
-    test_cnn = models.resnetModel_128()
+    test_cnn = models.resnetModel_64()
     test_cnn.load_state_dict(torch.load(f'trained_models/resnet_128_epoch_{i+1}.pt'))
 
     test_cnn.eval()
@@ -335,8 +335,8 @@ for i in range(epochs):
 Load sample weights and biases into a new model object.
 
 ```{python}
-test_cnn = models.resnetModel_128()
-test_cnn.load_state_dict(torch.load('trained_models/resnet_128_epoch_4.pt'))
+test_cnn = models.resnetModel_64()
+test_cnn.load_state_dict(torch.load('trained_models/resnet_128_epoch_3.pt'))
 ```
 
 Make predictions based on saved model.
