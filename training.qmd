@@ -150,9 +150,6 @@ classes = ('Not ' + attributes[factor], attributes[factor])
 Show random image with factors.
 
 ```{python}
-# view image
-unloader = transforms.ToPILImage()
-
 rand_num = random.randint(0, batch_size-1)
 
 func.imshow(torchvision.utils.make_grid(images[rand_num]))
