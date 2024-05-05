@@ -1,25 +1,21 @@
 ```{python}
 import modules.models as models
+import modules.functions as func
+from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 import torch
+import torchvision
 import torchvision.datasets as datasets
 import torchvision.transforms as transforms
 from torch.utils.data import DataLoader
-
-model_dir = 'trained_models/resnet_128_male/resnet_128_epoch_4.pt'
-data_dir = 'data/Validation/'
-classes = ('Female', 'Male')
-imsize = 128
 ```
 
 ```{python}
-if torch.backends.mps.is_available():
-    device = torch.device('mps')
-elif torch.cuda.is_available():
-    device = torch.device('cuda')
-else:
-    device = torch.device('cpu')
-
-torch.set_default_device(device)
+model_dir = 'trained_models/resnet_128_epoch_1.pt'
+data_dir = 'data/Validation/'
+classes = ('Female', 'Male')
+imsize = 64
+device = func.set_device()
+test_cnn = models.resnetModel_64()
 ```
 
 ```{python}
@@ -30,15 +26,15 @@ loader = transforms.Compose([
     transforms.Normalize(0, 1)
 ])
 
-external_test_dataset = datasets.ImageFolder(
+custom_test_dataset = datasets.ImageFolder(
     root=data_dir,
     transform=loader
 )
 
-n_images = min(len(external_test_dataset), 1000)
+n_images = min(len(custom_test_dataset), 1000)
 
 external_test_loader = DataLoader(
-    external_test_dataset,
+    custom_test_dataset,
     batch_size=n_images,
     shuffle=True,
     generator=torch.Generator(device=device)
@@ -46,10 +42,27 @@ external_test_loader = DataLoader(
 
 dataiter = iter(external_test_loader)
 images, labels = next(dataiter)
+
+func.imshow(torchvision.utils.make_grid(images))
 ```
 
 ```{python}
-test_cnn = models.resnetModel_128()
+for i in range(epochs):
+    test_cnn = models.resnetModel_64()
+    test_cnn.load_state_dict(torch.load(test_cnn.model_name + '_epoch_' + str(i+1) + '.pt'))
+
+    test_cnn.eval()
+    with torch.no_grad():
+        cnn_output = test_cnn.forward(images.to(device))
+
+    y_pred = torch.max(cnn_output, 1)[1]
+
+    ext_correct = (y_pred == labels).sum().item()
+    ext_incorrect = (y_pred != labels).sum().item()
+    print(f'Model {i+1} Accurary: {ext_correct/(ext_correct+ext_incorrect)}')
+```
+
+```{python}
 test_cnn.load_state_dict(torch.load(model_dir))
 
 test_cnn.eval()
@@ -59,8 +72,32 @@ with torch.no_grad():
 y_pred = torch.max(cnn_output, 1)[1]
 
 for i in range(n_images):
-    print('\n'+[img[0] for img in external_test_dataset.imgs][i])
+    func.imshow(images[i])
     print(f'Prediction: {classes[y_pred[i]]}')
+    print(f'Actual: {classes[labels[i]]}')
     print(f'{classes[0]} weight: {cnn_output[i][0]}')
     print(f'{classes[1]} weight: {cnn_output[i][1]}')
+```
+
+```{python}
+ext_correct = (y_pred == labels).sum().item()
+ext_incorrect = (y_pred != labels).sum().item()
+print(f'Correct predictions: {ext_correct}')
+print(f'Incorrect predictions: {ext_incorrect}')
+print(f'Accurary: {ext_correct/(ext_correct+ext_incorrect)}')
+```
+
+```{python}
+cm = confusion_matrix(labels.cpu(), y_pred.cpu())
+ConfusionMatrixDisplay(cm).plot()
+```
+
+```{python}
+for i in range(n_images):
+    if y_pred[i] != labels[i]:
+        func.imshow(images[i])
+        print(f'Prediction: {classes[y_pred[i]]}')
+        print(f'Actual: {classes[labels[i]]}')
+        print(f'{classes[0]} weight: {cnn_output[i][0]}')
+        print(f'{classes[1]} weight: {cnn_output[i][1]}')
 ```
