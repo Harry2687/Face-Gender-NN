@@ -21,12 +21,6 @@ test_cnn = models.resnetModel_64()
 ```
 
 ```{python}
-def rm_tensor_bg(image_tensor):
-    image_PIL = transforms.ToPILImage()(image_tensor)
-    result_image = remove(image_PIL)
-    output_tensor = transforms.ToTensor()(result_image)
-    return output_tensor
-
 loader = transforms.Compose([
     transforms.Resize([imsize, imsize]),
     transforms.Grayscale(1),
@@ -50,23 +44,6 @@ external_test_loader = DataLoader(
 
 dataiter = iter(external_test_loader)
 images, labels = next(dataiter)
-
-images_rmbg = torch.empty([0, 1, 64, 64])
-for i in range(images.size()[0]):
-    bg_image = images[i]
-    no_bg_image = rm_tensor_bg(bg_image)
-    no_bg_image = no_bg_image[0].unsqueeze(0).unsqueeze(0)
-    images_rmbg = torch.cat((images_rmbg, no_bg_image.to(device)), dim=0)
-
-func.imshow(torchvision.utils.make_grid(images))
-func.imshow(torchvision.utils.make_grid(images_rmbg))
-```
-
-```{python}
-for i in range(n_images):
-    test_bgrm = rm_tensor_bg(images[i])[0].unsqueeze(0).unsqueeze(0)
-    test_images = torch.cat((images[i].unsqueeze(1), test_bgrm), 0)
-    func.imshow(torchvision.utils.make_grid(test_images))
 ```
 
 ```{python}
@@ -76,7 +53,7 @@ for i in range(5):
 
     test_cnn.eval()
     with torch.no_grad():
-        cnn_output = test_cnn.forward(images_rmbg.to(device))
+        cnn_output = test_cnn.forward(images.to(device))
 
     y_pred = torch.max(cnn_output, 1)[1]
 
@@ -90,12 +67,12 @@ test_cnn.load_state_dict(torch.load(model_dir))
 
 test_cnn.eval()
 with torch.no_grad():
-    cnn_output = test_cnn.forward(images_rmbg.to(device))
+    cnn_output = test_cnn.forward(images.to(device))
 
 y_pred = torch.max(cnn_output, 1)[1]
 
 for i in range(n_images):
-    # func.imshow(images[i])
+    func.imshow(images[i])
     print(f'Prediction: {classes[y_pred[i]]}')
     print(f'Actual: {classes[labels[i]]}')
     print(f'{classes[0]} weight: {cnn_output[i][0]}')

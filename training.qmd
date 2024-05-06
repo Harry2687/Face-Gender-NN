@@ -29,7 +29,7 @@ device = func.set_device()
 Load train and test iterable using datasets.CelebA.
 
 ```{python}
-imsize = int(64/0.8)
+imsize = int(128/0.8)
 batch_size = 10
 
 fivecrop_transform = transforms.Compose([
@@ -104,7 +104,7 @@ Set model and other stuff.
 
 ```{python}
 torch.manual_seed(2687)
-cnn = models.resnetModel_64()
+cnn = models.resnetModel_128()
 criterion = nn.CrossEntropyLoss()
 optimizer = torch.optim.SGD(
     cnn.parameters(), 
@@ -163,16 +163,18 @@ for i in range(epochs):
         epoch_time += batch_time
         avg_batch_time = epoch_time/(j+1)
         batches_remaining = len(train_loader)-(j+1)
-        epoch_time_remaining = round(batches_remaining*avg_batch_time/60)
+        epoch_mins_remaining = round(batches_remaining*avg_batch_time/60)
+        epoch_time_remaining = func.mins_to_hours(epoch_mins_remaining)
 
         full_epoch = avg_batch_time*len(train_loader)
         epochs_remaining = epochs-(i+1)
-        rem_epoch_time_remaining = round(epoch_time_remaining+full_epoch*epochs_remaining/60)
+        rem_epoch_mins_remaining = epoch_mins_remaining+round(full_epoch*epochs_remaining/60)
+        rem_epoch_time_remaining = func.mins_to_hours(rem_epoch_mins_remaining)
         
         if (j+1) % 10 == 0:
             print(f'\nEpoch: {i+1} | Train Batch: {j+1}')
-            print(f'Current epoch: {epoch_time_remaining} minutes')
-            print(f'Remaining epochs: {rem_epoch_time_remaining} minutes')
+            print(f'Current epoch: {epoch_time_remaining[0]} hours {epoch_time_remaining[1]} minutes')
+            print(f'Remaining epochs: {rem_epoch_time_remaining[0]} hours {rem_epoch_time_remaining[1]} minutes')
             print(f'Train Loss: {loss.item()}')
             print(f'Train Accuracy: {train_batch_cr/len(X_train)}')
 

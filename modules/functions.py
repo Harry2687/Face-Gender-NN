@@ -73,3 +73,8 @@ attributes = (
     'Wearing_Necktie', 
     'Young'
 )
+
+def mins_to_hours(mins):
+    hours = int(mins/60)
+    rem_mins = mins % 60
+    return hours, rem_mins
