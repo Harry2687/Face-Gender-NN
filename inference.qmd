@@ -2,6 +2,8 @@
 import modules.models as models
 import modules.functions as func
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
+from PIL import Image
+from rembg import remove
 import torch
 import torchvision
 import torchvision.datasets as datasets
@@ -10,7 +12,7 @@ from torch.utils.data import DataLoader
 ```
 
 ```{python}
-model_dir = 'trained_models/resnet_128_epoch_1.pt'
+model_dir = 'trained_models/resnetModel_64_epoch_2.pt'
 data_dir = 'data/Validation/'
 classes = ('Female', 'Male')
 imsize = 64
@@ -19,6 +21,12 @@ test_cnn = models.resnetModel_64()
 ```
 
 ```{python}
+def rm_tensor_bg(image_tensor):
+    image_PIL = transforms.ToPILImage()(image_tensor)
+    result_image = remove(image_PIL)
+    output_tensor = transforms.ToTensor()(result_image)
+    return output_tensor
+
 loader = transforms.Compose([
     transforms.Resize([imsize, imsize]),
     transforms.Grayscale(1),
@@ -31,7 +39,7 @@ custom_test_dataset = datasets.ImageFolder(
     transform=loader
 )
 
-n_images = min(len(custom_test_dataset), 1000)
+n_images = min(len(custom_test_dataset), 15)
 
 external_test_loader = DataLoader(
     custom_test_dataset,
@@ -43,17 +51,32 @@ external_test_loader = DataLoader(
 dataiter = iter(external_test_loader)
 images, labels = next(dataiter)
 
+images_rmbg = torch.empty([0, 1, 64, 64])
+for i in range(images.size()[0]):
+    bg_image = images[i]
+    no_bg_image = rm_tensor_bg(bg_image)
+    no_bg_image = no_bg_image[0].unsqueeze(0).unsqueeze(0)
+    images_rmbg = torch.cat((images_rmbg, no_bg_image.to(device)), dim=0)
+
 func.imshow(torchvision.utils.make_grid(images))
+func.imshow(torchvision.utils.make_grid(images_rmbg))
 ```
 
 ```{python}
-for i in range(epochs):
+for i in range(n_images):
+    test_bgrm = rm_tensor_bg(images[i])[0].unsqueeze(0).unsqueeze(0)
+    test_images = torch.cat((images[i].unsqueeze(1), test_bgrm), 0)
+    func.imshow(torchvision.utils.make_grid(test_images))
+```
+
+```{python}
+for i in range(5):
     test_cnn = models.resnetModel_64()
-    test_cnn.load_state_dict(torch.load(test_cnn.model_name + '_epoch_' + str(i+1) + '.pt'))
+    test_cnn.load_state_dict(torch.load('trained_models/' + test_cnn.model_name + '_epoch_' + str(i+1) + '.pt'))
 
     test_cnn.eval()
     with torch.no_grad():
-        cnn_output = test_cnn.forward(images.to(device))
+        cnn_output = test_cnn.forward(images_rmbg.to(device))
 
     y_pred = torch.max(cnn_output, 1)[1]
 
@@ -67,16 +90,16 @@ test_cnn.load_state_dict(torch.load(model_dir))
 
 test_cnn.eval()
 with torch.no_grad():
-    cnn_output = test_cnn.forward(images.to(device))
+    cnn_output = test_cnn.forward(images_rmbg.to(device))
 
 y_pred = torch.max(cnn_output, 1)[1]
 
 for i in range(n_images):
-    func.imshow(images[i])
+    # func.imshow(images[i])
     print(f'Prediction: {classes[y_pred[i]]}')
     print(f'Actual: {classes[labels[i]]}')
     print(f'{classes[0]} weight: {cnn_output[i][0]}')
-    print(f'{classes[1]} weight: {cnn_output[i][1]}')
+    print(f'{classes[1]} weight: {cnn_output[i][1]}\n')
 ```
 
 ```{python}
@@ -100,4 +123,13 @@ for i in range(n_images):
         print(f'Actual: {classes[labels[i]]}')
         print(f'{classes[0]} weight: {cnn_output[i][0]}')
         print(f'{classes[1]} weight: {cnn_output[i][1]}')
+```
+
+```{python}
+for i in range(n_images):
+    with torch.no_grad():
+        layer_1 = test_cnn.conv_1(images[i].to(device).unsqueeze(0))
+        layer_2 = test_cnn.res_1(layer_1) + layer_1
+    func.imshow(torchvision.utils.make_grid(layer_1.squeeze(0).unsqueeze(1)))
+    func.imshow(torchvision.utils.make_grid(layer_2.squeeze(0).unsqueeze(1)))
 ```
