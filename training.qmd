@@ -125,7 +125,7 @@ print(func.n_parameters(cnn))
 Train for a specified number of epochs
 
 ```{python}
-epochs = 5
+epochs = 2
 train_losses = []
 test_losses = []
 train_correct = []

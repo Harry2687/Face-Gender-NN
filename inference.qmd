@@ -3,7 +3,6 @@ import modules.models as models
 import modules.functions as func
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 from PIL import Image
-from rembg import remove
 import torch
 import torchvision
 import torchvision.datasets as datasets
@@ -12,12 +11,12 @@ from torch.utils.data import DataLoader
 ```
 
 ```{python}
-model_dir = 'trained_models/resnetModel_64_epoch_2.pt'
+model_dir = 'trained_models/resnetModel_128_epoch_2.pt'
 data_dir = 'data/Validation/'
 classes = ('Female', 'Male')
-imsize = 64
+imsize = 128
 device = func.set_device()
-test_cnn = models.resnetModel_64()
+test_cnn = models.resnetModel_128()
 ```
 
 ```{python}
@@ -47,8 +46,8 @@ images, labels = next(dataiter)
 ```
 
 ```{python}
-for i in range(5):
-    test_cnn = models.resnetModel_64()
+for i in range(2):
+    test_cnn = models.resnetModel_128()
     test_cnn.load_state_dict(torch.load('trained_models/' + test_cnn.model_name + '_epoch_' + str(i+1) + '.pt'))
 
     test_cnn.eval()
