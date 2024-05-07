@@ -11,12 +11,13 @@ from torch.utils.data import DataLoader
 ```
 
 ```{python}
-model_dir = 'trained_models/resnetModel_128_epoch_2.pt'
-data_dir = 'data/Validation/'
-classes = ('Female', 'Male')
-imsize = 128
 device = func.set_device()
-test_cnn = models.resnetModel_128()
+cnn = models.resnetModel_128()
+model_dir = 'trained_models/resnetModel_128_epoch_2.pt'
+cnn.load_state_dict(torch.load(model_dir, map_location=device))
+cnn.eval()
+imsize = 128
+classes = ('Female', 'Male')
 ```
 
 ```{python}
@@ -27,55 +28,84 @@ loader = transforms.Compose([
     transforms.Normalize(0, 1)
 ])
 
-custom_test_dataset = datasets.ImageFolder(
-    root=data_dir,
+my_dataset = datasets.ImageFolder(
+    root='data/Validation/',
     transform=loader
 )
 
-n_images = min(len(custom_test_dataset), 15)
+tpdne_dataset = datasets.ImageFolder(
+    root='data/ThisPersonDoesNotExist/',
+    transform=loader
+)
 
-external_test_loader = DataLoader(
-    custom_test_dataset,
+kaggle_dataset = datasets.ImageFolder(
+    root='data/kaggle_faces/',
+    transform=loader
+)
+
+n_images = 100
+
+my_dataset_loader = DataLoader(
+    my_dataset,
     batch_size=n_images,
-    shuffle=True,
     generator=torch.Generator(device=device)
 )
 
-dataiter = iter(external_test_loader)
-images, labels = next(dataiter)
+tpdne_dataset_loader = DataLoader(
+    tpdne_dataset,
+    batch_size=n_images,
+    generator=torch.Generator(device=device)
+)
+
+kaggle_dataset_loader = DataLoader(
+    kaggle_dataset,
+    batch_size=n_images,
+    generator=torch.Generator(device=device)
+)
+
+data = [
+    [my_dataset, my_dataset_loader],
+    [tpdne_dataset, tpdne_dataset_loader],
+    [kaggle_dataset, kaggle_dataset_loader]
+]
 ```
 
 ```{python}
-for i in range(2):
-    test_cnn = models.resnetModel_128()
-    test_cnn.load_state_dict(torch.load('trained_models/' + test_cnn.model_name + '_epoch_' + str(i+1) + '.pt'))
-
-    test_cnn.eval()
+ds_accuracy = []
+for ds in data:
+    correct = 0
     with torch.no_grad():
-        cnn_output = test_cnn.forward(images.to(device))
+        for i, (X, y) in enumerate(ds[1]):
+            print(f'Batch {i+1}/{len(ds[1])}')
 
-    y_pred = torch.max(cnn_output, 1)[1]
+            X = X.to(device)
+            y_pred = cnn.forward(X)
 
-    ext_correct = (y_pred == labels).sum().item()
-    ext_incorrect = (y_pred != labels).sum().item()
-    print(f'Model {i+1} Accurary: {ext_correct/(ext_correct+ext_incorrect)}')
+            predicted = torch.max(y_pred.data, 1)[1]
+            batch_correct = (predicted == y).sum()
+            correct += batch_correct
+
+    accuracy = correct/len(ds[0])
+    ds_accuracy.append(accuracy.item())
+    
+print(ds_accuracy)
 ```
 
 ```{python}
-test_cnn.load_state_dict(torch.load(model_dir))
-
-test_cnn.eval()
 with torch.no_grad():
-    cnn_output = test_cnn.forward(images.to(device))
+    for i, (X, y) in enumerate(tpdne_dataset_loader):
+        X = X.to(device)
+        y_pred = cnn.forward(X)
 
-y_pred = torch.max(cnn_output, 1)[1]
+        predicted = torch.max(y_pred.data,1)[1]
 
-for i in range(n_images):
-    func.imshow(images[i])
-    print(f'Prediction: {classes[y_pred[i]]}')
-    print(f'Actual: {classes[labels[i]]}')
-    print(f'{classes[0]} weight: {cnn_output[i][0]}')
-    print(f'{classes[1]} weight: {cnn_output[i][1]}\n')
+        for j in range(len(X)):
+            if predicted[j] != y[j]:
+                func.imshow(X[j])
+                print(f'Prediction: {classes[predicted[j]]}')
+                print(f'Actual: {classes[y[j]]}')
+                print(f'{classes[0]} weight: {y_pred[j][0]}')
+                print(f'{classes[1]} weight: {y_pred[j][1]}\n')
 ```
 
 ```{python}
@@ -92,20 +122,23 @@ ConfusionMatrixDisplay(cm).plot()
 ```
 
 ```{python}
-for i in range(n_images):
-    if y_pred[i] != labels[i]:
-        func.imshow(images[i])
-        print(f'Prediction: {classes[y_pred[i]]}')
-        print(f'Actual: {classes[labels[i]]}')
-        print(f'{classes[0]} weight: {cnn_output[i][0]}')
-        print(f'{classes[1]} weight: {cnn_output[i][1]}')
-```
-
-```{python}
-for i in range(n_images):
-    with torch.no_grad():
-        layer_1 = test_cnn.conv_1(images[i].to(device).unsqueeze(0))
-        layer_2 = test_cnn.res_1(layer_1) + layer_1
-    func.imshow(torchvision.utils.make_grid(layer_1.squeeze(0).unsqueeze(1)))
-    func.imshow(torchvision.utils.make_grid(layer_2.squeeze(0).unsqueeze(1)))
+dataiter = iter(my_dataset_loader)
+images, labels = next(dataiter)
+with torch.no_grad():
+    layer_1 = cnn.conv_1(images[3].to(device).unsqueeze(0))
+    layer_2 = cnn.res_1(layer_1) + layer_1
+    layer_3 = cnn.conv_2(layer_2)
+    layer_4 = cnn.res_2(layer_3) + layer_3
+    layer_5 = cnn.conv_3(layer_4)
+    layer_6 = cnn.res_3(layer_5) + layer_5
+    layer_7 = cnn.conv_4(layer_6)
+    layer_8 = cnn.res_4(layer_7) + layer_7
+func.imshow(torchvision.utils.make_grid(layer_1.squeeze(0).unsqueeze(1)[4]))
+func.imshow(torchvision.utils.make_grid(layer_2.squeeze(0).unsqueeze(1)[4]))
+func.imshow(torchvision.utils.make_grid(layer_3.squeeze(0).unsqueeze(1)[4]))
+func.imshow(torchvision.utils.make_grid(layer_4.squeeze(0).unsqueeze(1)[4]))
+func.imshow(torchvision.utils.make_grid(layer_5.squeeze(0).unsqueeze(1)[4]))
+func.imshow(torchvision.utils.make_grid(layer_6.squeeze(0).unsqueeze(1)[4]))
+func.imshow(torchvision.utils.make_grid(layer_7.squeeze(0).unsqueeze(1)[4]))
+func.imshow(torchvision.utils.make_grid(layer_8.squeeze(0).unsqueeze(1)[4]))
 ```
