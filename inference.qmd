@@ -18,6 +18,7 @@ cnn.load_state_dict(torch.load(model_dir, map_location=device))
 cnn.eval()
 imsize = 128
 classes = ('Female', 'Male')
+n_images = 100
 ```
 
 ```{python}
@@ -42,8 +43,6 @@ kaggle_dataset = datasets.ImageFolder(
     root='data/kaggle_faces/',
     transform=loader
 )
-
-n_images = 100
 
 my_dataset_loader = DataLoader(
     my_dataset,
@@ -92,6 +91,25 @@ print(ds_accuracy)
 ```
 
 ```{python}
+y_all = torch.empty([0])
+predicted_all = torch.empty([0])
+with torch.no_grad():
+    for i, (X, y) in enumerate(kaggle_dataset_loader):
+        print(f'Batch {i+1}/{len(kaggle_dataset_loader)}')
+
+        X = X.to(device)
+        y_pred = cnn.forward(X)
+
+        predicted = torch.max(y_pred.data,1)[1]
+
+        y_all = torch.cat((y_all, y))
+        predicted_all = torch.cat((predicted_all, predicted))
+
+cm = confusion_matrix(y_all.cpu(), predicted_all.cpu())
+ConfusionMatrixDisplay(cm).plot()
+```
+
+```{python}
 with torch.no_grad():
     for i, (X, y) in enumerate(tpdne_dataset_loader):
         X = X.to(device)
@@ -109,23 +127,11 @@ with torch.no_grad():
 ```
 
 ```{python}
-ext_correct = (y_pred == labels).sum().item()
-ext_incorrect = (y_pred != labels).sum().item()
-print(f'Correct predictions: {ext_correct}')
-print(f'Incorrect predictions: {ext_incorrect}')
-print(f'Accurary: {ext_correct/(ext_correct+ext_incorrect)}')
-```
-
-```{python}
-cm = confusion_matrix(labels.cpu(), y_pred.cpu())
-ConfusionMatrixDisplay(cm).plot()
-```
-
-```{python}
 dataiter = iter(my_dataset_loader)
 images, labels = next(dataiter)
+image = images[13]
 with torch.no_grad():
-    layer_1 = cnn.conv_1(images[3].to(device).unsqueeze(0))
+    layer_1 = cnn.conv_1(image.to(device).unsqueeze(0))
     layer_2 = cnn.res_1(layer_1) + layer_1
     layer_3 = cnn.conv_2(layer_2)
     layer_4 = cnn.res_2(layer_3) + layer_3
@@ -133,12 +139,54 @@ with torch.no_grad():
     layer_6 = cnn.res_3(layer_5) + layer_5
     layer_7 = cnn.conv_4(layer_6)
     layer_8 = cnn.res_4(layer_7) + layer_7
-func.imshow(torchvision.utils.make_grid(layer_1.squeeze(0).unsqueeze(1)[4]))
-func.imshow(torchvision.utils.make_grid(layer_2.squeeze(0).unsqueeze(1)[4]))
-func.imshow(torchvision.utils.make_grid(layer_3.squeeze(0).unsqueeze(1)[4]))
-func.imshow(torchvision.utils.make_grid(layer_4.squeeze(0).unsqueeze(1)[4]))
-func.imshow(torchvision.utils.make_grid(layer_5.squeeze(0).unsqueeze(1)[4]))
-func.imshow(torchvision.utils.make_grid(layer_6.squeeze(0).unsqueeze(1)[4]))
-func.imshow(torchvision.utils.make_grid(layer_7.squeeze(0).unsqueeze(1)[4]))
-func.imshow(torchvision.utils.make_grid(layer_8.squeeze(0).unsqueeze(1)[4]))
+
+func.imshow(image)
+func.imshow(
+    torchvision.utils.make_grid(
+        layer_1.squeeze(0).unsqueeze(1),
+        nrow=int(64**0.5)
+    )
+)
+func.imshow(
+    torchvision.utils.make_grid(
+        layer_2.squeeze(0).unsqueeze(1),
+        nrow=int(64**0.5)
+    )
+)
+func.imshow(
+    torchvision.utils.make_grid(
+        layer_3.squeeze(0).unsqueeze(1),
+        nrow=int(256**0.5)
+    )
+)
+func.imshow(
+    torchvision.utils.make_grid(
+        layer_4.squeeze(0).unsqueeze(1),
+        nrow=int(256**0.5)
+    )
+)
+func.imshow(
+    torchvision.utils.make_grid(
+        layer_5.squeeze(0).unsqueeze(1),
+        nrow=int(512**0.5)
+    )
+)
+func.imshow(
+    torchvision.utils.make_grid(
+        layer_6.squeeze(0).unsqueeze(1),
+        nrow=int(512**0.5)
+    )
+)
+func.imshow(
+    torchvision.utils.make_grid(
+        layer_7.squeeze(0).unsqueeze(1),
+        nrow=int(1024**0.5)
+    )
+)
+func.imshow(
+    torchvision.utils.make_grid(
+        layer_8.squeeze(0).unsqueeze(1),
+        nrow=int(1024**0.5)
+    )
+)
 ```
