@@ -129,7 +129,12 @@ with torch.no_grad():
 ```{python}
 dataiter = iter(my_dataset_loader)
 images, labels = next(dataiter)
-image = images[13]
+
+index = 15
+image = images[index]
+y_pred = cnn.forward(images.to(device))
+predicted = torch.max(y_pred.data,1)[1][index]
+
 with torch.no_grad():
     layer_1 = cnn.conv_1(image.to(device).unsqueeze(0))
     layer_2 = cnn.res_1(layer_1) + layer_1
@@ -189,4 +194,8 @@ func.imshow(
         nrow=int(1024**0.5)
     )
 )
+print(f'Prediction: {classes[predicted]}')
+print(f'Actual: {classes[labels[index]]}')
+print(f'{classes[0]} weight: {y_pred[index][0]}')
+print(f'{classes[1]} weight: {y_pred[index][1]}')
 ```

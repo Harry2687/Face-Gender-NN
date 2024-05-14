@@ -128,12 +128,10 @@ Train for a specified number of epochs
 epochs = 2
 train_losses = []
 test_losses = []
-train_correct = []
-test_correct = []
+train_accuracy = []
+test_accuracy = []
 for i in range(epochs):
     epoch_time = 0
-    train_cr = 0
-    test_cr = 0
 
     for j, (X_train, y_train) in enumerate(train_loader):
         batch_start = time.time()
@@ -145,13 +143,10 @@ for i in range(epochs):
         y_pred_crops = cnn.forward(X_train.view(-1, c, h, w))
         y_pred = y_pred_crops.view(bs, ncrops, -1).mean(1)
 
-        # y_pred = cnn.forward(X_train)
-
         loss = criterion(y_pred, y_train)
 
         predicted = torch.max(y_pred.data, 1)[1]
-        train_batch_cr = (predicted == y_train).sum()
-        train_cr += train_batch_cr
+        train_batch_accuracy = (predicted == y_train).sum()/len(X_train)
 
         optimizer.zero_grad()
         loss.backward()
@@ -172,14 +167,14 @@ for i in range(epochs):
         rem_epoch_time_remaining = func.mins_to_hours(rem_epoch_mins_remaining)
         
         if (j+1) % 10 == 0:
-            print(f'\nEpoch: {i+1} | Train Batch: {j+1}')
+            print(f'\nEpoch: {i+1}/{epochs} | Train Batch: {j+1}/{len(train_loader)}')
             print(f'Current epoch: {epoch_time_remaining[0]} hours {epoch_time_remaining[1]} minutes')
             print(f'Remaining epochs: {rem_epoch_time_remaining[0]} hours {rem_epoch_time_remaining[1]} minutes')
-            print(f'Train Loss: {loss.item()}')
-            print(f'Train Accuracy: {train_batch_cr/len(X_train)}')
+            print(f'Train Loss: {loss}')
+            print(f'Train Accuracy: {train_batch_accuracy}')
 
-    train_losses.append(loss.item())
-    train_correct.append(train_cr.item())
+        train_losses.append(loss.item())
+        train_accuracy.append(train_batch_accuracy.item())
 
     with torch.no_grad():
         for j, (X_test, y_test) in enumerate(test_loader):
@@ -188,18 +183,17 @@ for i in range(epochs):
             loss = criterion(y_val, y_test)
 
             predicted = torch.max(y_val.data, 1)[1]
-            test_batch_cr = (predicted == y_test).sum()
-            test_cr += test_batch_cr
+            test_batch_accuracy = (predicted == y_test).sum()/len(X_test)
             
             if (j+1) % 10 == 0:
                 print(f'\nEpoch: {i+1} | Test Batch: {j+1}')
-                print(f'Test Loss: {loss.item()}')
-                print(f'Test Accuracy: {test_batch_cr/len(X_test)}')
+                print(f'Test Loss: {loss}')
+                print(f'Test Accuracy: {test_batch_accuracy}')
+
+            test_losses.append(loss.item())
+            test_accuracy.append(test_batch_accuracy.item())
 
     scheduler.step()
-
-    test_losses.append(loss.item())
-    test_correct.append(test_cr.item())
 
     trained_model_dir = 'trained_models/'
     trained_model_name = cnn.model_name + '_epoch_' + str(i+1) + '.pt'
@@ -209,23 +203,20 @@ for i in range(epochs):
     )
 ```
 
-Graph loss at the end of each epoch.
+Graph training loss and accuracy at end of each batch.
 
 ```{python}
-plt.plot(train_losses, label="Training Loss")
-plt.plot(test_losses, label="Validation Loss")
-plt.title("Loss at Epoch")
+plt.plot(train_losses, label='Training Loss')
+plt.plot(train_accuracy, label='Training Accuracy')
+plt.title('Loss at each Batch')
 plt.legend()
 ```
 
-Graph accuracy of each epoch.
+Graph testing loss and accuracy at end of each batch.
 
 ```{python}
-train_size = len(train_dataset)
-test_size = len(test_dataset)
-
-plt.plot([t/train_size for t in train_correct], label="Training Accuracy")
-plt.plot([t/test_size for t in test_correct], label="Validation Accuracy")
-plt.title("Accuracy at the end of each Epoch")
+plt.plot(test_losses, label='Testing Loss')
+plt.plot(test_accuracy, label='Testing Accuracy')
+plt.title('Loss at each Batch')
 plt.legend()
 ```
