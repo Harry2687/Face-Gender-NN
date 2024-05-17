@@ -35,7 +35,7 @@ my_dataset = datasets.ImageFolder(
 )
 
 tpdne_dataset = datasets.ImageFolder(
-    root='data/ThisPersonDoesNotExist/',
+    root='data/ThisPersonDoesNotExist_resize/',
     transform=loader
 )
 
