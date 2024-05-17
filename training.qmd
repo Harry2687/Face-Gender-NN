@@ -1,20 +1,16 @@
 Import stuff.
 
 ```{python}
-import os
 import random
 import time
-import numpy as np
 import matplotlib.pyplot as plt
-from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 import torch
 import torch.nn as nn
 import torch.optim as optim
+from torch.utils.data import DataLoader
 import torchvision
 import torchvision.transforms as transforms
 import torchvision.datasets as datasets
-import torch.nn.functional as F
-from torch.utils.data import DataLoader, random_split
 
 import modules.models as models
 import modules.functions as func
@@ -37,11 +33,10 @@ fivecrop_transform = transforms.Compose([
     transforms.Grayscale(1),
     transforms.FiveCrop(int(imsize*0.8)),
     transforms.Lambda(lambda crops: torch.stack([transforms.ToTensor()(crop) for crop in crops])),
-    # transforms.Resize([imsize, imsize]),
     transforms.Normalize(0, 1)
 ])
 
-loader = transforms.Compose([
+test_loader = transforms.Compose([
     transforms.Resize([int(imsize*0.8), int(imsize*0.8)]),
     transforms.Grayscale(1),
     transforms.ToTensor(),
@@ -57,8 +52,8 @@ train_dataset = datasets.CelebA(
 )
 
 test_dataset = datasets.ImageFolder(
-    root='data/ThisPersonDoesNotExist/',
-    transform=loader
+    root='data/ThisPersonDoesNotExist_resize/',
+    transform=test_loader
 )
 
 train_loader = DataLoader(
@@ -74,21 +69,17 @@ test_loader = DataLoader(
     shuffle=True,
     generator=torch.Generator(device=device)
 )
-
-dataiter = iter(train_loader)
-images, labels = next(dataiter)
-```
-
-Choose factor to predict.
-
-```{python}
-factor = func.attributes.index('Male')
-classes = ('Not ' + func.attributes[factor], func.attributes[factor])
 ```
 
 Show random image with factors.
 
 ```{python}
+factor = func.attributes.index('Male')
+classes = ('Not ' + func.attributes[factor], func.attributes[factor])
+
+dataiter = iter(train_loader)
+images, labels = next(dataiter)
+
 rand_num = random.randint(0, batch_size-1)
 
 func.imshow(torchvision.utils.make_grid(images[rand_num]))
@@ -117,9 +108,6 @@ scheduler = torch.optim.lr_scheduler.StepLR(
     step_size=1,
     gamma=0.1
 )
-
-print(next(cnn.parameters()).device)
-print(func.n_parameters(cnn))
 ```
 
 Train for a specified number of epochs
@@ -152,6 +140,9 @@ for i in range(epochs):
         loss.backward()
         optimizer.step()
 
+        train_losses.append(loss.item())
+        train_accuracy.append(train_batch_accuracy.item())
+
         batch_end = time.time()
 
         batch_time = batch_end - batch_start
@@ -173,9 +164,6 @@ for i in range(epochs):
             print(f'Train Loss: {loss}')
             print(f'Train Accuracy: {train_batch_accuracy}')
 
-        train_losses.append(loss.item())
-        train_accuracy.append(train_batch_accuracy.item())
-
     with torch.no_grad():
         for j, (X_test, y_test) in enumerate(test_loader):
             X_test = X_test.to(device)
@@ -184,14 +172,14 @@ for i in range(epochs):
 
             predicted = torch.max(y_val.data, 1)[1]
             test_batch_accuracy = (predicted == y_test).sum()/len(X_test)
+
+            test_losses.append(loss.item())
+            test_accuracy.append(test_batch_accuracy.item())
             
             if (j+1) % 10 == 0:
                 print(f'\nEpoch: {i+1} | Test Batch: {j+1}')
                 print(f'Test Loss: {loss}')
                 print(f'Test Accuracy: {test_batch_accuracy}')
-
-            test_losses.append(loss.item())
-            test_accuracy.append(test_batch_accuracy.item())
 
     scheduler.step()
 

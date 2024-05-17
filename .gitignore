@@ -1,4 +1,4 @@
-/data
-/trained_models
+/data/celeba
+/trained_models/*.pt
 /modules/__pycache__
 .DS_Store

@@ -30,17 +30,12 @@ loader = transforms.Compose([
 ])
 
 my_dataset = datasets.ImageFolder(
-    root='data/Validation/',
+    root='data/custom_test_images/',
     transform=loader
 )
 
 tpdne_dataset = datasets.ImageFolder(
     root='data/ThisPersonDoesNotExist/',
-    transform=loader
-)
-
-kaggle_dataset = datasets.ImageFolder(
-    root='data/kaggle_faces/',
     transform=loader
 )
 
@@ -56,16 +51,9 @@ tpdne_dataset_loader = DataLoader(
     generator=torch.Generator(device=device)
 )
 
-kaggle_dataset_loader = DataLoader(
-    kaggle_dataset,
-    batch_size=n_images,
-    generator=torch.Generator(device=device)
-)
-
 data = [
     [my_dataset, my_dataset_loader],
-    [tpdne_dataset, tpdne_dataset_loader],
-    [kaggle_dataset, kaggle_dataset_loader]
+    [tpdne_dataset, tpdne_dataset_loader]
 ]
 ```
 
@@ -94,8 +82,8 @@ print(ds_accuracy)
 y_all = torch.empty([0])
 predicted_all = torch.empty([0])
 with torch.no_grad():
-    for i, (X, y) in enumerate(kaggle_dataset_loader):
-        print(f'Batch {i+1}/{len(kaggle_dataset_loader)}')
+    for i, (X, y) in enumerate(tpdne_dataset_loader):
+        print(f'Batch {i+1}/{len(tpdne_dataset_loader)}')
 
         X = X.to(device)
         y_pred = cnn.forward(X)
